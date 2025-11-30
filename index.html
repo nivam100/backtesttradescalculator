@@ -748,16 +748,23 @@
     </script>
     <!-- Vercel Analytics -->
     <script>
-        // Vercel Analytics - automatically injected when deployed to Vercel
-        // For local development, this will be a no-op
+        // Vercel Analytics for static HTML sites
+        // Note: Analytics only sends data in production, not in development
         (function() {
-            if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-                var script = document.createElement('script');
-                script.src = 'https://va.vercel-scripts.com/v1/script.debug.js';
-                script.defer = true;
-                script.setAttribute('data-vercel-analytics-id', '');
-                document.head.appendChild(script);
-            }
+            if (typeof window === 'undefined') return;
+            
+            // Use Vercel's analytics endpoint (works in production)
+            var script = document.createElement('script');
+            script.src = '/_vercel/insights/script.js';
+            script.defer = true;
+            script.onerror = function() {
+                // Fallback: if Vercel endpoint doesn't work, try the CDN
+                var fallback = document.createElement('script');
+                fallback.src = 'https://va.vercel-scripts.com/v1/script.js';
+                fallback.defer = true;
+                document.head.appendChild(fallback);
+            };
+            document.head.appendChild(script);
         })();
     </script>
 </body>
