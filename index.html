@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Many Trades Do You Need?</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fafafa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            position: relative;
+        }
+
+        .attribution {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: #999;
+            z-index: 10;
+        }
+
+        .attribution a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .attribution a:hover {
+            opacity: 0.7;
+            text-decoration: underline;
+        }
+
+        .attribution .heart {
+            display: inline-block;
+            font-style: normal;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fafafa;
+            border-radius: 0;
+            border: none;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #fafafa;
+            color: #1a1a1a;
+            padding: 48px 32px;
+            text-align: center;
+            border-bottom: none;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .content {
+            padding: 0px 32px 40px 32px;
+            background: #fafafa;
+        }
+
+        .calculator {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+            font-size: 14px;
+        }
+
+        .input-with-suffix {
+            position: relative;
+            width: 100%;
+        }
+
+        .input-with-suffix input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d1d1;
+            border-radius: 6px;
+            font-size: 15px;
+            background: white;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-suffix {
+            position: absolute;
+            left: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 15px;
+            pointer-events: none;
+            user-select: none;
+            transition: left 0.1s;
+        }
+
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d1d1;
+            border-radius: 6px;
+            font-size: 15px;
+            background: white;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-with-suffix input:focus {
+            outline: none;
+            border-color: #1a1a1a;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group input[type="number"]:focus {
+            outline: none;
+            border-color: #1a1a1a;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group input[type="number"]::placeholder {
+            color: #999;
+        }
+
+        .help-icon-container {
+            display: inline-block;
+            position: relative;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid #d1d1d1;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.2s;
+        }
+
+        .help-icon:hover {
+            border-color: #1a1a1a;
+            color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 16px;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: normal;
+            width: 280px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            font-weight: 400;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1a1a1a;
+        }
+
+        .help-icon-container:hover .tooltip {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .confidence-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .confidence-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #d1d1d1;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+            color: #1a1a1a;
+        }
+
+        .confidence-btn:hover {
+            border-color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .confidence-btn.active {
+            background: #1a1a1a;
+            color: white;
+            border-color: #1a1a1a;
+        }
+
+        .result {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result .number {
+            font-size: 48px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 12px 0;
+            letter-spacing: -0.02em;
+        }
+
+        .result .label {
+            font-size: 15px;
+            color: #666;
+        }
+
+        .result .no-edge-title {
+            font-size: 32px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .result .no-edge-subtitle {
+            font-size: 15px;
+            color: #666;
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: white;
+            border: 1px solid #1a1a1a;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            margin-top: 24px;
+        }
+
+        .calculate-btn:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .calculate-btn:active {
+            transform: scale(0.98);
+        }
+
+        .section {
+            margin-top: 50px;
+        }
+
+        .section h2 {
+            font-size: 22px;
+            margin-bottom: 24px;
+            color: #1a1a1a;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 12px;
+        }
+
+        .qa-item {
+            margin-bottom: 24px;
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .qa-item h3 {
+            font-size: 17px;
+            color: #1a1a1a;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .qa-item p {
+            line-height: 1.6;
+            color: #666;
+            font-size: 15px;
+        }
+
+        .qa-item ul {
+            margin-left: 20px;
+            margin-top: 12px;
+        }
+
+        .qa-item li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+            color: #666;
+            font-size: 15px;
+        }
+
+        .warning-box {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-left: 3px solid #1a1a1a;
+            padding: 20px 24px;
+            border-radius: 8px;
+            margin-top: 32px;
+        }
+
+        .warning-box h3 {
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .warning-box p {
+            color: #666;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .warning-box a {
+            color: #1a1a1a;
+            text-decoration: underline;
+            font-weight: 500;
+        }
+
+        .warning-box a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .confidence-options {
+                flex-direction: column;
+            }
+
+            .result .number {
+                font-size: 36px;
+            }
+
+            .tooltip {
+                width: 240px;
+                font-size: 12px;
+                padding: 10px 14px;
+            }
+
+            .attribution {
+                position: relative;
+                top: 0;
+                left: 0;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="attribution">
+        made with <span class="heart">❤️</span> by <a href="https://stonkscapital.substack.com/" target="_blank">stonks capital</a>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>How Many Trades Prove Your Strategy Works</h1>
+            
+        </div>
+
+        <div class="content">
+            <div class="calculator">
+                <div class="form-group">
+                    <label for="winrate">
+                        Win Rate
+                        <span class="help-icon-container">
+                            <span class="help-icon">
+                                ?
+                                <span class="tooltip">Enter as percentage (e.g., 25 for 25%)</span>
+                            </span>
+                        </span>
+                    </label>
+                    <div class="input-with-suffix">
+                        <input type="number" id="winrate" min="0" max="100" step="1" placeholder="25" value="25">
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="rr">
+                        Risk-Reward Ratio
+                        <span class="help-icon-container">
+                            <span class="help-icon">
+                                ?
+                                <span class="tooltip">Enter as ratio (e.g., 4 for 1:4 risk-reward)</span>
+                            </span>
+                        </span>
+                    </label>
+                    <input type="number" id="rr" min="0.1" step="0.1" placeholder="4.0" value="4.0">
+                </div>
+
+                <div class="form-group">
+                    <label for="params">
+                        Parameters Optimized - Optional
+                        <span class="help-icon-container">
+                            <span class="help-icon">
+                                ?
+                                <span class="tooltip">The number of parameter combinations you tested and picked the best from. For example: testing 5 different RSI thresholds and picking the best = 5 parameters. If you didn't optimize anything, leave as 0.</span>
+                            </span>
+                        </span>
+                    </label>
+                    <input type="number" id="params" min="0" step="1" placeholder="0" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Confidence Level</label>
+                    <div class="confidence-options">
+                        <div class="confidence-btn" data-conf="0.95">95%</div>
+                        <div class="confidence-btn active" data-conf="0.99">99%</div>
+                        <div class="confidence-btn" data-conf="0.999">99.9%</div>
+                    </div>
+                </div>
+
+                <button class="calculate-btn" onclick="calculate()">Calculate Required Trades</button>
+
+                <div id="result" class="result">
+                    <div class="label">You need approximately</div>
+                    <div class="number" id="result-number">0</div>
+                    <div class="label">trades in your backtest</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>How to Use the Tool?</h2>
+
+                <div class="qa-item">
+                    <h3>What question does this tool answer?</h3>
+                    <p><strong>"How many trades do I need before my backtest's edge is statistically real and not just luck?"</strong></p>
+                    <p>This tool uses rigorous statistical methods to determine the minimum number of trades needed to be confident your strategy has a real edge, not just random chance.</p>
+                </div>
+
+                <div class="qa-item">
+                    <h3>How does it work?</h3>
+                    <p>The calculation uses:</p>
+                    <ul>
+                        <li><strong>Central Limit Theorem:</strong> Models your strategy's returns as a statistical distribution</li>
+                        <li><strong>Expected Value (EV):</strong> Calculates if your strategy is profitable: EV = (winrate × RR) - (1 - winrate)</li>
+                        <li><strong>Variance:</strong> Measures uncertainty in your results</li>
+                        <li><strong>Confidence Intervals:</strong> Ensures you're 99% sure EV > 0 (or your chosen confidence level)</li>
+                        <li><strong>Bonferroni Correction:</strong> Adjusts for multiple parameter testing to prevent false positives</li>
+                    </ul>
+                </div>
+
+                <div class="qa-item">
+                    <h3>Why do I need more trades when I optimize parameters?</h3>
+                    <p>Every time you test different parameter combinations and pick the best, you increase the chance of finding a false positive. This is called the "multiple testing problem" or "data snooping bias."</p>
+                    <p>Example: If you test 10 different RSI thresholds, one might look great by pure luck. The Bonferroni correction accounts for this by making the test more stringent.</p>
+                </div>
+
+                <div class="qa-item">
+                    <h3>What makes a strategy need more trades?</h3>
+                    <p>The required number of trades increases when:</p>
+                    <ul>
+                        <li><strong>Asymmetric risk-reward:</strong> High RR ratios create more variance</li>
+                        <li><strong>Low win rate:</strong> Fewer wins means more uncertainty</li>
+                        <li><strong>Fat-tailed distribution:</strong> Rare big wins increase variance</li>
+                        <li><strong>Many parameters optimized:</strong> More testing = higher false positive risk</li>
+                    </ul>
+                </div>
+
+                <div class="qa-item">
+                    <h3>Is this method academically sound?</h3>
+                    <p>Yes! This approach is based on:</p>
+                    <ul>
+                        <li>White's Reality Check (multiple hypothesis testing)</li>
+                        <li>Hansen SPA test methods</li>
+                        <li>Multiple comparison corrections used in scientific research</li>
+                        <li>Lo & MacKinlay (1990) on data-snooping in finance</li>
+                        <li>Standard practice in professional quant firms and academic papers</li>
+                    </ul>
+                </div>
+
+                <div class="qa-item">
+                    <h3>How do I interpret the result?</h3>
+                    <p id="interpretation-example">If the tool says you need 553 trades, it means:</p>
+                    <p id="interpretation-main"><strong>With 553 trades in your backtest, you can be 99% confident (or your chosen confidence level) that your observed edge is real and not due to random chance or overfitting.</strong></p>
+                    <p id="interpretation-note">If your backtest has fewer trades, the result may not be reliable. The more parameters you optimized, the more trades you need to be confident.</p>
+                </div>
+
+                <div class="warning-box">
+                    <h3>⚠️ What Could Still Go Wrong?</h3>
+                    <p>
+                        Even with sufficient trades for statistical confidence, other factors can affect your strategy's viability. 
+                        Learn about additional risks, limitations, and real-world considerations in our 
+                        <a href="https://stonkscapital.substack.com/p/the-backtest-checklist-7-things-you" target="_blank">comprehensive blog post on backtesting pitfalls</a>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedConfidence = 0.99;
+        let hasCalculated = false;
+
+        function updateInterpretation(numTrades, confidence) {
+            const confidencePercent = Math.round(confidence * 100);
+            const interpretationExample = document.getElementById('interpretation-example');
+            const interpretationMain = document.getElementById('interpretation-main');
+            
+            if (interpretationExample && interpretationMain) {
+                interpretationExample.textContent = `If the tool says you need ${numTrades.toLocaleString()} trades, it means:`;
+                interpretationMain.innerHTML = `<strong>With ${numTrades.toLocaleString()} trades in your backtest, you can be ${confidencePercent}% confident (or your chosen confidence level) that your observed edge is real and not due to random chance or overfitting.</strong>`;
+            }
+        }
+
+        // Confidence button handlers
+        document.querySelectorAll('.confidence-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.confidence-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedConfidence = parseFloat(btn.dataset.conf);
+                // Auto-calculate if user has already calculated once
+                if (hasCalculated) {
+                    calculate();
+                }
+            });
+        });
+
+        function calculate() {
+            const winratePercent = parseFloat(document.getElementById('winrate').value);
+            const rr = parseFloat(document.getElementById('rr').value);
+            const params = parseInt(document.getElementById('params').value) || 1; // Default to 1 if 0
+            
+            // Validation
+            if (isNaN(winratePercent) || winratePercent <= 0 || winratePercent >= 100) {
+                alert('Please enter a valid win rate between 0 and 100 (e.g., 25 for 25%)');
+                return;
+            }
+            
+            if (isNaN(rr) || rr <= 0) {
+                alert('Please enter a valid risk-reward ratio (e.g., 4 for 1:4)');
+                return;
+            }
+
+            // Convert percentage to decimal for calculations
+            const winrate = winratePercent / 100;
+
+            // Calculate break-even win rate
+            const p0 = 1 / (1 + rr);
+
+            // Check if winrate is above break-even
+            if (winrate <= p0) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<div class="no-edge-title">You have no edge</div><div class="no-edge-subtitle">Your strategy is -EV, back to drawing board</div>';
+                resultDiv.classList.add('show');
+                // Mark that calculation has been done
+                hasCalculated = true;
+                return;
+            }
+
+            // Bonferroni-adjusted alpha
+            const alpha = 1 - selectedConfidence;
+            const alphaAdj = alpha / params;
+            
+            // Calculate z-score using inverse normal CDF
+            // Approximates scipy.stats.norm.ppf(1 - alphaAdj)
+            function normPPF(p) {
+                // Welford's approximation for inverse normal CDF
+                if (p <= 0) return -Infinity;
+                if (p >= 1) return Infinity;
+                if (p === 0.5) return 0;
+                
+                // Rational approximation for standard normal quantile
+                const sign = p < 0.5 ? -1 : 1;
+                p = p < 0.5 ? p : 1 - p;
+                
+                const t = Math.sqrt(-2.0 * Math.log(p));
+                const c0 = 2.515517;
+                const c1 = 0.802853;
+                const c2 = 0.010328;
+                const d1 = 1.432788;
+                const d2 = 0.189269;
+                const d3 = 0.001308;
+                
+                const num = c0 + c1 * t + c2 * t * t;
+                const den = 1 + d1 * t + d2 * t * t + d3 * t * t * t;
+                
+                return sign * (t - num / den);
+            }
+            
+            const z = normPPF(1 - alphaAdj);
+
+            // Calculate variance (binomial variance term - matching Python implementation)
+            // Using p * (1 - p) as in the Python code
+            const variance = winrate * (1 - winrate);
+
+            // Effect size (delta)
+            const delta = winrate - p0;
+
+            // Required sample size: n = (z^2 * variance) / delta^2
+            const n = Math.ceil((z * z * variance) / (delta * delta));
+
+            // Display result - restore structure if needed
+            const resultDiv = document.getElementById('result');
+            if (!document.getElementById('result-number')) {
+                resultDiv.innerHTML = '<div class="label">You need approximately</div><div class="number" id="result-number">0</div><div class="label">trades in your backtest</div>';
+            }
+            document.getElementById('result-number').textContent = n.toLocaleString();
+            resultDiv.classList.add('show');
+            
+            // Update interpretation section with actual values
+            updateInterpretation(n, selectedConfidence);
+            
+            // Mark that calculation has been done
+            hasCalculated = true;
+
+            // Scroll to result
+            document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Position % symbol dynamically based on input value
+        function updatePercentPosition() {
+            const input = document.getElementById('winrate');
+            const suffix = document.querySelector('.input-suffix');
+            if (!input || !suffix) return;
+            
+            // Create a temporary span to measure text width
+            const tempSpan = document.createElement('span');
+            tempSpan.style.visibility = 'hidden';
+            tempSpan.style.position = 'absolute';
+            tempSpan.style.whiteSpace = 'pre';
+            tempSpan.style.fontSize = window.getComputedStyle(input).fontSize;
+            tempSpan.style.fontFamily = window.getComputedStyle(input).fontFamily;
+            tempSpan.style.fontWeight = window.getComputedStyle(input).fontWeight;
+            tempSpan.textContent = input.value || input.placeholder || '';
+            document.body.appendChild(tempSpan);
+            
+            // Position % right after the text + a small gap
+            const textWidth = tempSpan.offsetWidth;
+            document.body.removeChild(tempSpan);
+            
+            // Position from left: padding (14px) + text width + small gap (4px)
+            const leftPosition = 14 + textWidth + 4;
+            suffix.style.left = leftPosition + 'px';
+        }
+        
+        // Setup percent positioning
+        function setupPercentPositioning() {
+            const winrateInput = document.getElementById('winrate');
+            if (winrateInput) {
+                winrateInput.addEventListener('input', updatePercentPosition);
+                winrateInput.addEventListener('change', updatePercentPosition);
+                // Initial positioning after a short delay to ensure styles are loaded
+                setTimeout(updatePercentPosition, 100);
+            }
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupPercentPositioning);
+        } else {
+            setupPercentPositioning();
+        }
+
+        // Allow Enter key to calculate
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                calculate();
+            }
+        });
+    </script>
+</body>
+</html>
+
