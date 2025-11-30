@@ -1,5 +1,7 @@
 # The Mathematics of Backtest Validation: How Many Trades Do You Actually Need?
 
+> **Note:** This is the full mathematical derivation. The published blog post version is available at: [The Mathematics of Backtest Validation](https://stonkscapital.substack.com/p/the-mathematics-of-backtest-validation)
+
 ## Introduction
 
 You've run a backtest. You have a win rate, a risk-reward ratio, and you've optimized some parameters. The equity curve looks promising. But how many trades do you need to see in that backtest to be confident your strategy has a real edge, not just luck?

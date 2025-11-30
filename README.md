@@ -70,7 +70,9 @@ Where:
 - `p₀` = break-even win rate = 1/(1 + RR)
 - `p - p₀` = effect size (edge)
 
-For detailed mathematical derivation, see [MATHEMATICAL_DERIVATION.md](MATHEMATICAL_DERIVATION.md)
+For detailed mathematical derivation, see:
+- **Published blog post**: [The Mathematics of Backtest Validation](https://stonkscapital.substack.com/p/the-mathematics-of-backtest-validation)
+- **Local markdown file**: [MATHEMATICAL_DERIVATION.md](MATHEMATICAL_DERIVATION.md)
 
 ## 📖 Example
 
@@ -107,7 +109,9 @@ This tool implements rigorous statistical methods:
 - **Sample Size Calculation** (statistical power analysis)
 - **Central Limit Theorem** (normal approximation of binomial)
 
-For a complete mathematical derivation with proofs, see [MATHEMATICAL_DERIVATION.md](MATHEMATICAL_DERIVATION.md).
+For a complete mathematical derivation with proofs, see:
+- **Published blog post**: [The Mathematics of Backtest Validation](https://stonkscapital.substack.com/p/the-mathematics-of-backtest-validation)
+- **Local markdown file**: [MATHEMATICAL_DERIVATION.md](MATHEMATICAL_DERIVATION.md)
 
 ## ⚠️ Important Notes
 
