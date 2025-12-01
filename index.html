@@ -49,6 +49,31 @@
             font-style: normal;
         }
 
+        .nav-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .nav-menu a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: white;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .nav-menu a:hover {
+            background: #fafafa;
+            border-color: #1a1a1a;
+        }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -71,6 +96,7 @@
             margin-bottom: 20px;
             font-weight: 600;
             letter-spacing: -0.02em;
+            line-height: 1.4;
         }
 
         .header p {
@@ -502,11 +528,12 @@
     <div class="attribution">
         made with <span class="heart">❤️</span> by <a href="https://stonkscapital.substack.com/" target="_blank">stonks capital</a>
     </div>
+    <div class="nav-menu">
+        <a href="monte-carlo.html">Monte Carlo</a>
+    </div>
     <div class="container">
         <div class="header">
-            <h1>How Many Trades Do You Actually Need</h1>
-            <p>To know your stratey is legit</p>
-            
+            <h1>How Many Trades Do You Actually Need to Know Your Stratey is Legit</h1>
         </div>
 
         <div class="content">
@@ -956,6 +983,9 @@
                     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 14px; color: #666;">
                         ${directionText} For accurate EV estimation for sizing, use "Edge Estimation" mode.
                     </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
+                    </div>
                 `;
             } else {
                 // Edge Estimation: Calculate CI for EV
@@ -983,15 +1013,14 @@
                     
                     resultHTML = `
                         <div class="label">With ${numTradesInput.toLocaleString()} trades, your EV estimate:</div>
-                        <div class="number" style="font-size: 36px;">${EV.toFixed(4)}</div>
-                        <div class="label" style="margin-top: 12px;">
-                            <strong>${Math.round(selectedConfidence * 100)}% Confidence Interval:</strong><br>
-                            ${evLower.toFixed(4)} to ${evUpper.toFixed(4)}
-                        </div>
+                        <div class="number" style="font-size: 36px;">${evLower.toFixed(2)} - ${evUpper.toFixed(2)}</div>
                         <div style="margin-top: 12px; font-size: 14px; color: #666;">
                             CI Width: ±${actualCIWidthPercent.toFixed(2)}% (absolute: ±${marginOfError.toFixed(4)})
                         </div>
                         ${showWarning ? `<div style="margin-top: 8px; font-size: 13px; color: #d97706;">⚠️ Wide CI - you need ${requiredTrades.toLocaleString()} trades for ±${desiredCIWidthPercent}% precision</div>` : ''}
+                        <div style="margin-top: 20px; text-align: center;">
+                            <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
+                        </div>
                     `;
                     n = numTradesInput;
                 } else if (ciWidthPercentInput && ciWidthPercentInput > 0) {
@@ -1018,6 +1047,9 @@
                             <strong>${Math.round(selectedConfidence * 100)}% CI:</strong> ${evLower.toFixed(4)} to ${evUpper.toFixed(4)}<br>
                             <strong>CI Width:</strong> ±${actualCIWidthPercent.toFixed(2)}% (absolute: ±${marginOfError.toFixed(4)})
                         </div>
+                        <div style="margin-top: 20px; text-align: center;">
+                            <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
+                        </div>
                     `;
                 } else {
                     // No input - show required trades for a default CI width (30%)
@@ -1032,6 +1064,9 @@
                         <div class="label" id="result-label">trades</div>
                         <div style="margin-top: 12px; font-size: 13px; color: #666;">
                             Enter your number of trades or desired CI width above for a custom calculation.
+                        </div>
+                        <div style="margin-top: 20px; text-align: center;">
+                            <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
                         </div>
                     `;
                 }

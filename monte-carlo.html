@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monte Carlo Simulation - Backtest Sample Size Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fafafa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            position: relative;
+        }
+
+        .attribution {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: #999;
+            z-index: 10;
+        }
+
+        .attribution a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .attribution a:hover {
+            opacity: 0.7;
+            text-decoration: underline;
+        }
+
+        .attribution .heart {
+            display: inline-block;
+            font-style: normal;
+        }
+
+        .nav-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .nav-menu a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: white;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .nav-menu a:hover {
+            background: #fafafa;
+            border-color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fafafa;
+        }
+
+        .header {
+            background: #fafafa;
+            color: #1a1a1a;
+            padding: 48px 32px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.4;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .content {
+            padding: 0px 32px 40px 32px;
+            background: #fafafa;
+        }
+
+        .calculator {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d1d1;
+            border-radius: 6px;
+            font-size: 15px;
+            background: white;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input[type="number"]:focus {
+            outline: none;
+            border-color: #1a1a1a;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-with-suffix {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .input-suffix {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 15px;
+            pointer-events: none;
+            user-select: none;
+            transition: left 0.1s;
+        }
+
+        .sizing-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sizing-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 16px;
+            border: 1px solid #d1d1d1;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #1a1a1a;
+        }
+
+        .sizing-btn:hover {
+            border-color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .sizing-btn.active {
+            background: #1a1a1a;
+            color: white;
+            border-color: #1a1a1a;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .help-icon-container {
+            display: inline-block;
+            position: relative;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid #d1d1d1;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.2s;
+        }
+
+        .help-icon:hover {
+            border-color: #1a1a1a;
+            color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 16px;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: normal;
+            width: 280px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            font-weight: 400;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1a1a1a;
+        }
+
+        .help-icon-container:hover .tooltip {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Toggle Switch Styles */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #1a1a1a;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: white;
+            border: 1px solid #1a1a1a;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            margin-top: 24px;
+        }
+
+        .calculate-btn:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .calculate-btn:active {
+            transform: scale(0.98);
+        }
+
+        .results-container {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .results-container.show {
+            display: block;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 24px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .stat-item {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+            text-align: center;
+        }
+
+        .kelly-display {
+            display: flex;
+            gap: 16px;
+            align-items: baseline;
+            flex-wrap: nowrap;
+            justify-content: center;
+        }
+
+        .kelly-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            min-width: 50px;
+        }
+
+        .kelly-label {
+            font-size: 11px;
+            color: #666;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            order: 2;
+        }
+
+        .kelly-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            white-space: nowrap;
+            order: 1;
+        }
+
+        @media (max-width: 400px) {
+            .kelly-display {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            
+            .kelly-item {
+                min-width: 45px;
+            }
+            
+            .kelly-value {
+                font-size: 18px;
+            }
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #1a1a1a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .nav-link:hover {
+            opacity: 0.7;
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .sizing-options {
+                flex-direction: column;
+            }
+
+            .sizing-btn {
+                min-width: 100%;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="attribution">
+        made with <span class="heart">❤️</span> by <a href="https://stonkscapital.substack.com/" target="_blank">stonks capital</a>
+    </div>
+    <div class="nav-menu">
+        <a href="index.html">Calculator</a>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>Visualize 1,000 Possible PnL Paths for Your Strategy with Monte Carlo Simulation</h1>
+        </div>
+
+        <div class="content">
+            <div class="calculator">
+                <div class="form-group">
+                    <label for="mc-winrate">
+                        Win Rate
+                        <span style="font-weight: 400; color: #666;">(percentage)</span>
+                    </label>
+                    <div class="input-with-suffix">
+                        <input type="number" id="mc-winrate" min="0" max="100" step="1" placeholder="25" value="25">
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="mc-rr">
+                        Risk-Reward Ratio
+                        <span style="font-weight: 400; color: #666;">(e.g., 4 for 1:4)</span>
+                    </label>
+                    <input type="number" id="mc-rr" min="0.1" step="0.1" placeholder="4.0" value="4.0">
+                </div>
+
+                <div class="form-group">
+                    <label for="mc-trades">
+                        Number of Trades
+                    </label>
+                    <input type="number" id="mc-trades" min="10" step="10" placeholder="100" value="100">
+                </div>
+
+                <div class="form-group">
+                    <label>Position Sizing Method</label>
+                    <div class="sizing-options">
+                        <div class="sizing-btn active" data-sizing="full-kelly">Full Kelly</div>
+                        <div class="sizing-btn" data-sizing="half-kelly">½ Kelly</div>
+                        <div class="sizing-btn" data-sizing="quarter-kelly">¼ Kelly</div>
+                        <div class="sizing-btn" data-sizing="fixed-ratio">Fixed Ratio</div>
+                    </div>
+                </div>
+
+                <div class="form-group" id="fixed-ratio-group" style="display: none;">
+                    <label for="fixed-ratio">
+                        Fixed Ratio
+                        <span class="help-icon-container">
+                            <span class="help-icon">
+                                ?
+                                <span class="tooltip">Enter the percentage of capital to risk per trade (e.g., 1 for 1%)</span>
+                            </span>
+                        </span>
+                    </label>
+                    <div class="input-with-suffix">
+                        <input type="number" id="fixed-ratio" min="0.1" max="25" step="0.1" placeholder="1" value="1">
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+
+                <button class="calculate-btn" onclick="runSimulation()">Run Simulation</button>
+
+                <div class="results-container" id="results-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h2 style="font-size: 20px; font-weight: 600; margin: 0;">Simulation Results</h2>
+                        <div class="toggle-container" style="margin: 0;">
+                            <span class="toggle-label">Log</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="scale-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label">Linear</span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="pnl-chart"></canvas>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">Average Final PnL</div>
+                            <div class="stat-value" id="avg-pnl">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Average Max Drawdown</div>
+                            <div class="stat-value" id="avg-drawdown">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Best Path Final PnL</div>
+                            <div class="stat-value" id="best-pnl">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Worst Path Final PnL</div>
+                            <div class="stat-value" id="worst-pnl">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Worst Max Drawdown</div>
+                            <div class="stat-value" id="worst-dd">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Expected Value (EV)</div>
+                            <div class="stat-value" id="ev">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Max Consecutive Wins</div>
+                            <div class="stat-value" id="max-consecutive-wins">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Max Consecutive Losses</div>
+                            <div class="stat-value" id="max-consecutive-losses">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Kelly Fraction</div>
+                            <div class="kelly-display" id="kelly-fraction">
+                                <div class="kelly-item">
+                                    <div class="kelly-label">Full</div>
+                                    <div class="kelly-value" id="kelly-full">0%</div>
+                                </div>
+                                <div class="kelly-item">
+                                    <div class="kelly-label">½</div>
+                                    <div class="kelly-value" id="kelly-half">0%</div>
+                                </div>
+                                <div class="kelly-item">
+                                    <div class="kelly-label">¼</div>
+                                    <div class="kelly-value" id="kelly-quarter">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let sizingMethod = 'full-kelly';
+        let scaleType = 'logarithmic'; // Default to logarithmic
+        let hasCalculated = false;
+
+        // Allow Enter key to run simulation - set up immediately
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                // Only handle Enter if it's in an input field (not in textarea, etc.)
+                const target = e.target;
+                if (target && target.tagName === 'INPUT' && target.type !== 'textarea') {
+                    e.preventDefault();
+                    // Check if runSimulation function exists before calling
+                    if (typeof runSimulation === 'function') {
+                        runSimulation();
+                        // Ensure scroll happens after DOM update
+                        setTimeout(() => {
+                            const resultsContainer = document.getElementById('results-container');
+                            if (resultsContainer && resultsContainer.classList.contains('show')) {
+                                resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            }
+                        }, 100);
+                    }
+                }
+            }
+        });
+
+        // Position sizing button handlers
+        document.querySelectorAll('.sizing-btn[data-sizing]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sizing-btn[data-sizing]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sizingMethod = btn.dataset.sizing;
+                
+                // Show/hide fixed ratio input field
+                const fixedRatioGroup = document.getElementById('fixed-ratio-group');
+                if (fixedRatioGroup) {
+                    if (sizingMethod === 'fixed-ratio') {
+                        fixedRatioGroup.style.display = 'block';
+                    } else {
+                        fixedRatioGroup.style.display = 'none';
+                    }
+                }
+                
+                // Auto-calculate if user has already calculated once
+                if (hasCalculated) {
+                    runSimulation();
+                }
+            });
+        });
+
+        // Scale type toggle handler
+        // Note: unchecked (circle left) = Logarithmic, checked (circle right) = Linear
+        const scaleToggle = document.getElementById('scale-toggle');
+        if (scaleToggle) {
+            scaleToggle.addEventListener('change', (e) => {
+                scaleType = e.target.checked ? 'linear' : 'logarithmic';
+                // Update chart if it exists
+                if (chart) {
+                    updateChartScale();
+                }
+            });
+        }
+
+        function updateChartScale() {
+            if (!chart) return;
+            
+            // Update the y-axis scale type
+            chart.options.scales.y.type = scaleType;
+            
+            // For logarithmic scale, ensure we don't have negative values
+            if (scaleType === 'logarithmic') {
+                chart.options.scales.y.min = 0.1; // Set minimum to avoid log(0)
+                chart.options.scales.y.beginAtZero = false;
+            } else {
+                chart.options.scales.y.min = undefined;
+                chart.options.scales.y.beginAtZero = true;
+            }
+            
+            chart.update();
+        }
+
+        function calculateKellyFraction(winrate, rr) {
+            // Kelly formula: f = (p * (RR + 1) - 1) / RR
+            // where p is winrate, RR is risk-reward ratio
+            const p = winrate / 100;
+            const kelly = (p * (rr + 1) - 1) / rr;
+            return Math.max(0, Math.min(kelly, 0.25)); // Cap at 25% for safety
+        }
+
+        function getPositionSize(winrate, rr, sizingMethod, currentCapital) {
+            let fraction;
+            
+            switch(sizingMethod) {
+                case 'full-kelly':
+                    fraction = calculateKellyFraction(winrate, rr);
+                    break;
+                case 'half-kelly':
+                    fraction = calculateKellyFraction(winrate, rr) * 0.5;
+                    break;
+                case 'quarter-kelly':
+                    fraction = calculateKellyFraction(winrate, rr) * 0.25;
+                    break;
+                case 'fixed-ratio':
+                    const fixedRatioInput = document.getElementById('fixed-ratio');
+                    if (fixedRatioInput) {
+                        const fixedRatioValue = fixedRatioInput.value.trim();
+                        // Handle incomplete input (e.g., "0." or empty)
+                        if (fixedRatioValue === '' || fixedRatioValue.endsWith('.')) {
+                            fraction = 0.01; // Default to 1% if input is incomplete
+                        } else {
+                            const fixedRatioPercent = parseFloat(fixedRatioValue);
+                            fraction = (isNaN(fixedRatioPercent) || fixedRatioPercent <= 0) ? 0.01 : (fixedRatioPercent / 100);
+                        }
+                    } else {
+                        fraction = 0.01; // Default to 1% if input doesn't exist
+                    }
+                    break;
+                default:
+                    fraction = 0.01;
+            }
+            
+            // For -EV strategies (Kelly <= 0), use minimum 1% position size to show path to 0
+            // This ensures we can visualize the decline even when the strategy is unprofitable
+            if (fraction <= 0 && sizingMethod !== 'fixed-ratio') {
+                fraction = 0.01;
+            }
+            
+            return Math.max(0, Math.min(fraction, 0.25)); // Cap at 25%
+        }
+
+        function simulatePath(winrate, rr, numTrades, sizingMethod) {
+            const p = winrate / 100;
+            const paths = [];
+            let capital = 100; // Start with 100 units
+            let peak = capital;
+            let maxDrawdown = 0;
+            let currentConsecutiveWins = 0;
+            let currentConsecutiveLosses = 0;
+            let maxConsecutiveWins = 0;
+            let maxConsecutiveLosses = 0;
+            
+            for (let i = 0; i < numTrades; i++) {
+                // Stop trading if capital is zero or negative
+                if (capital <= 0) {
+                    // Fill remaining path with zero
+                    for (let j = i; j < numTrades; j++) {
+                        paths.push({
+                            trade: j + 1,
+                            capital: 0,
+                            drawdown: 1 // 100% drawdown
+                        });
+                    }
+                    break;
+                }
+                
+                const positionSize = getPositionSize(winrate, rr, sizingMethod, capital);
+                const betAmount = capital * positionSize;
+                
+                // Simulate trade outcome
+                const isWin = Math.random() < p;
+                const returnMultiplier = isWin ? rr : -1;
+                const pnl = betAmount * returnMultiplier;
+                
+                capital += pnl;
+                
+                // Ensure capital doesn't go below zero
+                if (capital < 0) {
+                    capital = 0;
+                }
+                
+                // Track consecutive wins/losses
+                if (isWin) {
+                    currentConsecutiveWins++;
+                    currentConsecutiveLosses = 0;
+                    if (currentConsecutiveWins > maxConsecutiveWins) {
+                        maxConsecutiveWins = currentConsecutiveWins;
+                    }
+                } else {
+                    currentConsecutiveLosses++;
+                    currentConsecutiveWins = 0;
+                    if (currentConsecutiveLosses > maxConsecutiveLosses) {
+                        maxConsecutiveLosses = currentConsecutiveLosses;
+                    }
+                }
+                
+                // Track peak and drawdown
+                if (capital > peak) {
+                    peak = capital;
+                }
+                const drawdown = (peak - capital) / peak;
+                if (drawdown > maxDrawdown) {
+                    maxDrawdown = drawdown;
+                }
+                
+                paths.push({
+                    trade: i + 1,
+                    capital: capital,
+                    drawdown: drawdown
+                });
+            }
+            
+            return {
+                path: paths.map(pathItem => pathItem.capital),
+                finalPnL: capital - 100,
+                maxDrawdown: maxDrawdown,
+                maxConsecutiveWins: maxConsecutiveWins,
+                maxConsecutiveLosses: maxConsecutiveLosses
+            };
+        }
+
+        function runSimulation() {
+            const winrate = parseFloat(document.getElementById('mc-winrate').value);
+            const rr = parseFloat(document.getElementById('mc-rr').value);
+            const numTrades = parseInt(document.getElementById('mc-trades').value);
+            
+            // Validation
+            if (isNaN(winrate) || winrate <= 0 || winrate >= 100) {
+                alert('Please enter a valid win rate between 0 and 100');
+                return;
+            }
+            
+            if (isNaN(rr) || rr <= 0) {
+                alert('Please enter a valid risk-reward ratio');
+                return;
+            }
+            
+            if (isNaN(numTrades) || numTrades < 10) {
+                alert('Please enter at least 10 trades');
+                return;
+            }
+
+            // Validate fixed ratio if it's the selected method
+            if (sizingMethod === 'fixed-ratio') {
+                const fixedRatioInput = document.getElementById('fixed-ratio');
+                const fixedRatioValue = fixedRatioInput ? fixedRatioInput.value.trim() : '';
+                
+                // Don't run simulation if input is incomplete (e.g., "0." or empty)
+                if (fixedRatioValue === '' || fixedRatioValue.endsWith('.')) {
+                    // Incomplete input, don't show error but don't run simulation
+                    return;
+                }
+                
+                // Validate complete numbers
+                const fixedRatio = parseFloat(fixedRatioValue);
+                if (isNaN(fixedRatio) || fixedRatio < 0.1 || fixedRatio > 25) {
+                    alert('Please enter a valid fixed ratio between 0.1 and 25');
+                    return;
+                }
+            }
+
+            // Calculate win rate probability
+            const p = winrate / 100;
+
+            // Run 1000 simulations
+            const allPaths = [];
+            const allDrawdowns = [];
+            const allMaxConsecutiveWins = [];
+            const allMaxConsecutiveLosses = [];
+            
+            for (let i = 0; i < 1000; i++) {
+                const result = simulatePath(winrate, rr, numTrades, sizingMethod);
+                allPaths.push(result);
+                allDrawdowns.push(result.maxDrawdown);
+                allMaxConsecutiveWins.push(result.maxConsecutiveWins);
+                allMaxConsecutiveLosses.push(result.maxConsecutiveLosses);
+            }
+
+            // Find best and worst paths
+            allPaths.sort((a, b) => a.finalPnL - b.finalPnL);
+            const worstPath = allPaths[0];
+            const bestPath = allPaths[allPaths.length - 1];
+
+            // Select 20 random paths (excluding best and worst)
+            const randomPaths = [];
+            const availablePaths = allPaths.slice(1, -1); // Exclude worst and best
+            const indices = new Set();
+            while (indices.size < Math.min(20, availablePaths.length)) {
+                indices.add(Math.floor(Math.random() * availablePaths.length));
+            }
+            indices.forEach(idx => {
+                randomPaths.push(availablePaths[idx]);
+            });
+
+            // Calculate statistics
+            const avgFinalPnL = allPaths.reduce((sum, path) => sum + path.finalPnL, 0) / allPaths.length;
+            const avgDrawdown = allDrawdowns.reduce((sum, d) => sum + d, 0) / allDrawdowns.length;
+            const worstMaxDrawdown = Math.max(...allDrawdowns);
+            const maxConsecutiveWins = Math.max(...allMaxConsecutiveWins);
+            const maxConsecutiveLosses = Math.max(...allMaxConsecutiveLosses);
+
+            // Calculate EV: EV = (winrate * RR) - (1 - winrate)
+            // p is already declared above (line 774)
+            const EV = (p * rr) - (1 - p);
+
+            // Calculate Kelly fractions
+            const fullKelly = calculateKellyFraction(winrate, rr);
+            const halfKelly = fullKelly * 0.5;
+            const quarterKelly = fullKelly * 0.25;
+
+            // Helper function to format numbers with commas
+            function formatNumber(num) {
+                const formatted = num.toFixed(2);
+                const parts = formatted.split('.');
+                const integerPart = parts[0];
+                const decimalPart = parts[1];
+                
+                // Add commas to integer part if >= 1000
+                if (Math.abs(parseInt(integerPart)) >= 1000) {
+                    return parseInt(integerPart).toLocaleString() + '.' + decimalPart;
+                }
+                return formatted;
+            }
+
+            // Helper function to format integers with commas
+            function formatInteger(num) {
+                if (num >= 1000) {
+                    return num.toLocaleString();
+                }
+                return num.toString();
+            }
+
+            // Update stats display
+            document.getElementById('avg-pnl').textContent = formatNumber(avgFinalPnL);
+            document.getElementById('avg-drawdown').textContent = (avgDrawdown * 100).toFixed(2) + '%';
+            document.getElementById('best-pnl').textContent = formatNumber(bestPath.finalPnL);
+            document.getElementById('worst-pnl').textContent = formatNumber(worstPath.finalPnL);
+            document.getElementById('worst-dd').textContent = (worstMaxDrawdown * 100).toFixed(2) + '%';
+            document.getElementById('ev').textContent = formatNumber(EV);
+            document.getElementById('max-consecutive-wins').textContent = formatInteger(maxConsecutiveWins);
+            document.getElementById('max-consecutive-losses').textContent = formatInteger(maxConsecutiveLosses);
+            document.getElementById('kelly-full').textContent = (fullKelly * 100).toFixed(2) + '%';
+            document.getElementById('kelly-half').textContent = (halfKelly * 100).toFixed(2) + '%';
+            document.getElementById('kelly-quarter').textContent = (quarterKelly * 100).toFixed(2) + '%';
+
+            // Intelligently determine scale type based on actual data range
+            // This ensures the chart is always comfortable to view
+            
+            // First, check if any path has zero or negative values (must use linear)
+            const hasZeroOrNegativeValues = allPaths.some(path => 
+                path.path.some(value => value <= 0)
+            );
+            
+            if (hasZeroOrNegativeValues) {
+                // Must use linear if we have zero/negative values (logarithmic can't handle them)
+                scaleType = 'linear';
+            } else {
+                // Calculate the range of values across all paths
+                let minValue = Infinity;
+                let maxValue = -Infinity;
+                
+                allPaths.forEach(path => {
+                    path.path.forEach(value => {
+                        if (value > 0) { // Only consider positive values
+                            minValue = Math.min(minValue, value);
+                            maxValue = Math.max(maxValue, value);
+                        }
+                    });
+                });
+                
+                // Calculate range metrics
+                const rangeRatio = maxValue / minValue; // Ratio of max to min
+                const maxToStartRatio = maxValue / 100; // Ratio of max to starting capital
+                const minToStartRatio = minValue / 100; // Ratio of min to starting capital
+                
+                // Use logarithmic scale if:
+                // 1. Range is very large (max/min > 10), OR
+                // 2. Max value is much larger than starting capital (> 10x) and min is close to start
+                // Otherwise use linear for better readability
+                if (rangeRatio > 10 || (maxToStartRatio > 10 && minToStartRatio > 0.5)) {
+                    scaleType = 'logarithmic';
+                } else {
+                    scaleType = 'linear';
+                }
+            }
+            
+            // Update the toggle checkbox to reflect the selected scale type
+            const scaleToggle = document.getElementById('scale-toggle');
+            if (scaleToggle) {
+                scaleToggle.checked = (scaleType === 'linear'); // Linear is checked
+            }
+
+            // Prepare chart data
+            const labels = Array.from({ length: numTrades }, (_, i) => i + 1);
+            
+            const datasets = [];
+
+            // Add 20 random paths in grey
+            randomPaths.forEach((pathData, idx) => {
+                datasets.push({
+                    label: '',
+                    data: pathData.path,
+                    borderColor: 'rgba(200, 200, 200, 0.3)',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    tension: 0.1,
+                    showLine: true
+                });
+            });
+
+            // Add worst path in black
+            datasets.push({
+                label: 'Worst Path',
+                data: worstPath.path,
+                borderColor: '#1a1a1a',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.1,
+                showLine: true
+            });
+
+            // Add best path in black
+            datasets.push({
+                label: 'Best Path',
+                data: bestPath.path,
+                borderColor: '#1a1a1a',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.1,
+                showLine: true,
+                borderDash: [5, 5]
+            });
+
+            // Destroy existing chart if it exists
+            if (chart) {
+                chart.destroy();
+            }
+
+            // Create new chart
+            const ctx = document.getElementById('pnl-chart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                filter: function(item) {
+                                    return item.text !== ''; // Hide empty labels for grey paths
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            filter: function(tooltipItem) {
+                                // Only show tooltip for best/worst paths
+                                return tooltipItem.datasetIndex >= randomPaths.length;
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Trade Number'
+                            },
+                            grid: {
+                                color: '#f0f0f0'
+                            }
+                        },
+                        y: {
+                            type: scaleType,
+                            title: {
+                                display: true,
+                                text: 'Capital'
+                            },
+                            grid: {
+                                color: '#f0f0f0'
+                            },
+                            beginAtZero: scaleType === 'linear' ? true : false,
+                            min: scaleType === 'logarithmic' ? 0.1 : undefined
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+
+            // Show results
+            document.getElementById('results-container').classList.add('show');
+            
+            // Mark that calculation has been done
+            hasCalculated = true;
+            
+            // Scroll to results after a short delay to ensure DOM is updated
+            setTimeout(() => {
+                const resultsContainer = document.getElementById('results-container');
+                if (resultsContainer) {
+                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 100);
+        }
+
+        // Position % symbol dynamically based on input value
+        function updatePercentPosition(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            
+            // Find the suffix for this specific input
+            const inputContainer = input.closest('.input-with-suffix');
+            if (!inputContainer) return;
+            const suffix = inputContainer.querySelector('.input-suffix');
+            if (!suffix) return;
+            
+            // Create a temporary span to measure text width
+            const tempSpan = document.createElement('span');
+            tempSpan.style.visibility = 'hidden';
+            tempSpan.style.position = 'absolute';
+            tempSpan.style.whiteSpace = 'pre';
+            tempSpan.style.fontSize = window.getComputedStyle(input).fontSize;
+            tempSpan.style.fontFamily = window.getComputedStyle(input).fontFamily;
+            tempSpan.style.fontWeight = window.getComputedStyle(input).fontWeight;
+            tempSpan.textContent = input.value || input.placeholder || '';
+            document.body.appendChild(tempSpan);
+            
+            // Position % right after the text + a small gap
+            const textWidth = tempSpan.offsetWidth;
+            document.body.removeChild(tempSpan);
+            
+            // Position from left: padding (14px) + text width + small gap (4px)
+            const leftPosition = 14 + textWidth + 4;
+            suffix.style.left = leftPosition + 'px';
+        }
+        
+        // Setup percent positioning
+        function setupPercentPositioning() {
+            const winrateInput = document.getElementById('mc-winrate');
+            if (winrateInput) {
+                winrateInput.addEventListener('input', () => updatePercentPosition('mc-winrate'));
+                winrateInput.addEventListener('change', () => updatePercentPosition('mc-winrate'));
+                // Initial positioning after a short delay to ensure styles are loaded
+                setTimeout(() => updatePercentPosition('mc-winrate'), 100);
+            }
+            
+            const fixedRatioInput = document.getElementById('fixed-ratio');
+            if (fixedRatioInput) {
+                fixedRatioInput.addEventListener('input', () => {
+                    updatePercentPosition('fixed-ratio');
+                    // Auto-calculate if user has already calculated once and input is complete
+                    // Skip if input is incomplete (ends with "." or is empty)
+                    const value = fixedRatioInput.value.trim();
+                    if (hasCalculated && sizingMethod === 'fixed-ratio' && value !== '' && !value.endsWith('.')) {
+                        // Only auto-calculate if we have a complete number
+                        const numValue = parseFloat(value);
+                        if (!isNaN(numValue) && numValue >= 0.1 && numValue <= 25) {
+                            runSimulation();
+                        }
+                    }
+                });
+                fixedRatioInput.addEventListener('change', () => {
+                    updatePercentPosition('fixed-ratio');
+                    // Auto-calculate if user has already calculated once
+                    if (hasCalculated && sizingMethod === 'fixed-ratio') {
+                        runSimulation();
+                    }
+                });
+                setTimeout(() => updatePercentPosition('fixed-ratio'), 100);
+            }
+        }
+        
+        // Read URL parameters and auto-run simulation if provided
+        function initializeFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const winrateParam = urlParams.get('winrate');
+            const rrParam = urlParams.get('rr');
+            
+            if (winrateParam && rrParam) {
+                const winrate = parseFloat(winrateParam);
+                const rr = parseFloat(rrParam);
+                
+                // Pre-fill inputs if valid
+                if (!isNaN(winrate) && winrate > 0 && winrate < 100) {
+                    const winrateInput = document.getElementById('mc-winrate');
+                    if (winrateInput) {
+                        winrateInput.value = winrate;
+                        updatePercentPosition('mc-winrate');
+                    }
+                }
+                
+                if (!isNaN(rr) && rr > 0) {
+                    const rrInput = document.getElementById('mc-rr');
+                    if (rrInput) {
+                        rrInput.value = rr;
+                    }
+                }
+                
+                // Auto-run simulation after a short delay to ensure inputs are set
+                setTimeout(() => {
+                    runSimulation();
+                }, 300);
+            }
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setupPercentPositioning();
+                initializeFromURL();
+            });
+        } else {
+            setupPercentPositioning();
+            initializeFromURL();
+        }
+    </script>
+</body>
+</html>
+
