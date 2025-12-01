@@ -1232,6 +1232,27 @@
             initializeFromURL();
         }
     </script>
+    <!-- Vercel Analytics -->
+    <script>
+        // Vercel Analytics for static HTML sites
+        // Note: Analytics only sends data in production, not in development
+        (function() {
+            if (typeof window === 'undefined') return;
+            
+            // Use Vercel's analytics endpoint (works in production)
+            var script = document.createElement('script');
+            script.src = '/_vercel/insights/script.js';
+            script.defer = true;
+            script.onerror = function() {
+                // Fallback: if Vercel endpoint doesn't work, try the CDN
+                var fallback = document.createElement('script');
+                fallback.src = 'https://va.vercel-scripts.com/v1/script.js';
+                fallback.defer = true;
+                document.head.appendChild(fallback);
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
 </body>
 </html>
 
