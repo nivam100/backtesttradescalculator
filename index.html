@@ -552,11 +552,11 @@
                 <div class="form-group">
                     <label>Calculation Mode</label>
                     <div class="confidence-options">
-                        <div class="confidence-btn mode-btn active" data-mode="detection">Edge Detection</div>
-                        <div class="confidence-btn mode-btn" data-mode="estimation">Edge Estimation</div>
+                        <div class="confidence-btn mode-btn active" data-mode="estimation">Edge Estimation</div>
+                        <div class="confidence-btn mode-btn" data-mode="detection">Edge Detection</div>
                     </div>
                     <div class="help-text">
-                        <span id="mode-description">Detect if you have an edge (EV > 0)</span>
+                        <span id="mode-description">Estimate your EV accurately for position sizing</span>
                     </div>
                 </div>
 
@@ -734,7 +734,7 @@
     <script>
         let selectedConfidence = 0.95;
         let hasCalculated = false;
-        let calculationMode = 'detection'; // 'detection' or 'estimation'
+        let calculationMode = 'estimation'; // 'detection' or 'estimation'
         let evDirection = 'positive'; // 'positive' for EV > 0 (circle left), 'negative' for EV < 0 (circle right)
 
         // Mode button handlers
@@ -1108,17 +1108,31 @@
             document.addEventListener('DOMContentLoaded', () => {
                 setupPercentPositioning();
                 // Initialize field visibility based on current mode
-                if (calculationMode === 'detection') {
+                if (calculationMode === 'estimation') {
+                    document.getElementById('ci-width-group').style.display = 'block';
+                    document.getElementById('num-trades-group').style.display = 'block';
+                    document.getElementById('params-group').style.display = 'none';
+                    document.getElementById('ev-direction-group').style.display = 'none';
+                } else {
                     document.getElementById('params-group').style.display = 'block';
                     document.getElementById('ev-direction-group').style.display = 'block';
+                    document.getElementById('ci-width-group').style.display = 'none';
+                    document.getElementById('num-trades-group').style.display = 'none';
                 }
             });
         } else {
             setupPercentPositioning();
             // Initialize field visibility based on current mode
-            if (calculationMode === 'detection') {
+            if (calculationMode === 'estimation') {
+                document.getElementById('ci-width-group').style.display = 'block';
+                document.getElementById('num-trades-group').style.display = 'block';
+                document.getElementById('params-group').style.display = 'none';
+                document.getElementById('ev-direction-group').style.display = 'none';
+            } else {
                 document.getElementById('params-group').style.display = 'block';
                 document.getElementById('ev-direction-group').style.display = 'block';
+                document.getElementById('ci-width-group').style.display = 'none';
+                document.getElementById('num-trades-group').style.display = 'none';
             }
         }
 
