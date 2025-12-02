@@ -254,6 +254,12 @@
             pointer-events: auto;
         }
 
+        /* Keep tooltip visible when hovering over it */
+        .tooltip:hover {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
         .confidence-options {
             display: flex;
             gap: 10px;
@@ -541,11 +547,11 @@
             <div class="calculator">
                 <div class="form-group">
                     <label for="winrate">
-                        Win Rate
+                        What's your win rate?
                         <span class="help-icon-container">
                             <span class="help-icon">
                                 ?
-                                <span class="tooltip">Enter as percentage (e.g., 25 for 25%)</span>
+                                <span class="tooltip">💡 Example: If 6 out of 10 trades win = 60%</span>
                             </span>
                         </span>
                     </label>
@@ -557,94 +563,17 @@
 
                 <div class="form-group">
                     <label for="rr">
-                        Risk-Reward Ratio
+                        What's your risk-reward ratio?
                         <span class="help-icon-container">
                             <span class="help-icon">
                                 ?
-                                <span class="tooltip">Enter as ratio (e.g., 4 for 1:4 risk-reward)</span>
+                                <span class="tooltip">average $ win / average $ loss</span>
                             </span>
                         </span>
                     </label>
                     <input type="number" id="rr" min="0.1" step="0.1" placeholder="4.0" value="4.0">
                 </div>
 
-                <div class="form-group">
-                    <label>Confidence Level</label>
-                    <div class="confidence-options">
-                        <div class="confidence-btn active" data-conf="0.95">95%</div>
-                        <div class="confidence-btn" data-conf="0.99">99%</div>
-                        <div class="confidence-btn" data-conf="0.999">99.9%</div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Calculation Mode</label>
-                    <div class="confidence-options">
-                        <div class="confidence-btn mode-btn active" data-mode="estimation">Edge Estimation</div>
-                        <div class="confidence-btn mode-btn" data-mode="detection">Edge Detection</div>
-                    </div>
-                    <div class="help-text">
-                        <span id="mode-description">Estimate your EV accurately for position sizing</span>
-                    </div>
-                </div>
-
-                <div class="form-group" id="ev-direction-group" style="display: none;">
-                    <label>Test Direction</label>
-                    <div class="toggle-container">
-                        <span class="toggle-label">EV > 0</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="ev-direction-toggle">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="toggle-label">EV < 0</span>
-                    </div>
-                    <div class="help-text">
-                        <span id="direction-description">Test if your strategy has positive expected value</span>
-                    </div>
-                </div>
-
-                <div class="form-group" id="params-group" style="display: none;">
-                    <label for="params">
-                        Parameters Optimized - Optional
-                        <span class="help-icon-container">
-                            <span class="help-icon">
-                                ?
-                                <span class="tooltip">The number of parameter combinations you tested and picked the best from. For example: testing 5 different RSI thresholds and picking the best = 5 parameters. If you didn't optimize anything, leave as 0.</span>
-                            </span>
-                        </span>
-                    </label>
-                    <input type="number" id="params" min="0" step="1" placeholder="0" value="0">
-                </div>
-
-                <div class="form-group" id="ci-width-group" style="display: none;">
-                    <label for="ci-width">
-                        Desired Confidence Interval Width - Optional
-                        <span class="help-icon-container">
-                            <span class="help-icon">
-                                ?
-                                <span class="tooltip">The margin of error as a percentage of your EV. For example, 30 means your EV estimate will be within ±30% of the true value. Smaller values require more trades.</span>
-                            </span>
-                        </span>
-                    </label>
-                    <div class="input-with-suffix">
-                        <input type="number" id="ci-width" min="1" max="100" step="1" placeholder="30" value="30">
-                        <span class="input-suffix">%</span>
-                    </div>
-                    <div class="help-text">Leave empty to see Confidence Interval width for current number of trades</div>
-                </div>
-
-                <div class="form-group" id="num-trades-group" style="display: none;">
-                    <label for="num-trades">
-                        Number of Trades in Your Backtest - Optional
-                        <span class="help-icon-container">
-                            <span class="help-icon">
-                                ?
-                                <span class="tooltip">Enter the actual number of trades you have. We'll calculate the confidence interval for your EV estimate.</span>
-                            </span>
-                        </span>
-                    </label>
-                    <input type="number" id="num-trades" min="1" step="1" placeholder="e.g., 100">
-                </div>
 
                 <button class="calculate-btn" onclick="calculate()">Calculate</button>
 
@@ -760,110 +689,13 @@
     </div>
 
     <script>
-        let selectedConfidence = 0.95;
+        let selectedConfidence = 0.95; // Fixed to 95%
         let hasCalculated = false;
-        let calculationMode = 'estimation'; // 'detection' or 'estimation'
-        let evDirection = 'positive'; // 'positive' for EV > 0 (circle left), 'negative' for EV < 0 (circle right)
-
-        // Mode button handlers
-        document.querySelectorAll('.mode-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                calculationMode = btn.dataset.mode;
-                
-                // Show/hide relevant fields
-                const ciWidthGroup = document.getElementById('ci-width-group');
-                const numTradesGroup = document.getElementById('num-trades-group');
-                const paramsGroup = document.getElementById('params-group');
-                const evDirectionGroup = document.getElementById('ev-direction-group');
-                const modeDescription = document.getElementById('mode-description');
-                
-                if (calculationMode === 'estimation') {
-                    ciWidthGroup.style.display = 'block';
-                    numTradesGroup.style.display = 'block';
-                    paramsGroup.style.display = 'none';
-                    evDirectionGroup.style.display = 'none';
-                    modeDescription.textContent = 'Estimate your EV accurately for position sizing';
-                } else {
-                    ciWidthGroup.style.display = 'none';
-                    numTradesGroup.style.display = 'none';
-                    paramsGroup.style.display = 'block';
-                    evDirectionGroup.style.display = 'block';
-                    updateModeDescription();
-                }
-                
-                // Auto-calculate if user has already calculated once
-                if (hasCalculated) {
-                    calculate();
-                }
-            });
-        });
-
-        // EV Direction toggle handler
-        // Note: unchecked (circle left) = EV > 0, checked (circle right) = EV < 0
-        const evDirectionToggle = document.getElementById('ev-direction-toggle');
-        if (evDirectionToggle) {
-            evDirectionToggle.addEventListener('change', (e) => {
-                evDirection = e.target.checked ? 'negative' : 'positive';
-                updateModeDescription();
-                
-                // Auto-calculate if user has already calculated once
-                if (hasCalculated) {
-                    calculate();
-                }
-            });
-        }
-
-        function updateModeDescription() {
-            const modeDescription = document.getElementById('mode-description');
-            const directionDescription = document.getElementById('direction-description');
-            if (calculationMode === 'detection') {
-                if (evDirection === 'positive') {
-                    modeDescription.textContent = 'Detect if you have an edge (EV > 0)';
-                    directionDescription.textContent = 'Test if your strategy has positive expected value';
-                } else {
-                    modeDescription.textContent = 'Detect if trades have negative edge (EV < 0)';
-                    directionDescription.textContent = 'Test if specific trades have negative expected value (for removal/validation)';
-                }
-            }
-        }
-
-        function updateInterpretation(numTrades, confidence) {
-            const confidencePercent = Math.round(confidence * 100);
-            const interpretationExample = document.getElementById('interpretation-example');
-            const interpretationMain = document.getElementById('interpretation-main');
-            
-            if (interpretationExample && interpretationMain) {
-                const directionText = evDirection === 'positive'
-                    ? 'that your observed edge is real and not due to random chance or overfitting'
-                    : 'that these trades have negative edge and can be safely removed';
-                
-                interpretationExample.textContent = `If the tool says you need ${numTrades.toLocaleString()} trades, it means:`;
-                interpretationMain.innerHTML = `<strong>With ${numTrades.toLocaleString()} trades in your backtest, you can be ${confidencePercent}% confident (or your chosen confidence level) ${directionText}.</strong>`;
-            }
-        }
-
-        // Confidence button handlers
-        document.querySelectorAll('.confidence-btn:not(.mode-btn)').forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Only handle confidence buttons, not mode buttons
-                if (btn.classList.contains('mode-btn')) return;
-                
-                document.querySelectorAll('.confidence-btn:not(.mode-btn)').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedConfidence = parseFloat(btn.dataset.conf);
-                // Auto-calculate if user has already calculated once
-                if (hasCalculated) {
-                    calculate();
-                }
-            });
-        });
+        let calculationMode = 'estimation'; // Fixed to estimation mode
 
         function calculate() {
             const winratePercent = parseFloat(document.getElementById('winrate').value);
             const rr = parseFloat(document.getElementById('rr').value);
-            const params = parseInt(document.getElementById('params').value) || 1; // Default to 1 if 0
             
             // Validation
             if (isNaN(winratePercent) || winratePercent <= 0 || winratePercent >= 100) {
@@ -882,36 +714,13 @@
             // Calculate break-even win rate
             const p0 = 1 / (1 + rr);
 
-            // Check edge direction based on mode and direction setting
-            if (calculationMode === 'detection') {
-                if (evDirection === 'positive') {
-                    // Testing EV > 0: check if winrate is above break-even
-                    if (winrate <= p0) {
-                        const resultDiv = document.getElementById('result');
-                        resultDiv.innerHTML = '<div class="no-edge-title">You have no edge</div><div class="no-edge-subtitle">Your strategy is -EV, back to drawing board</div>';
-                        resultDiv.classList.add('show');
-                        hasCalculated = true;
-                        return;
-                    }
-                } else {
-                    // Testing EV < 0: check if winrate is below break-even
-                    if (winrate >= p0) {
-                        const resultDiv = document.getElementById('result');
-                        resultDiv.innerHTML = '<div class="no-edge-title">Trades are not -EV</div><div class="no-edge-subtitle">These trades have positive or zero EV, cannot validate removal</div>';
-                        resultDiv.classList.add('show');
-                        hasCalculated = true;
-                        return;
-                    }
-                }
-            } else {
-                // Estimation mode: check if winrate is above break-even
-                if (winrate <= p0) {
-                    const resultDiv = document.getElementById('result');
-                    resultDiv.innerHTML = '<div class="no-edge-title">You have no edge</div><div class="no-edge-subtitle">Your strategy is -EV, back to drawing board</div>';
-                    resultDiv.classList.add('show');
-                    hasCalculated = true;
-                    return;
-                }
+            // Estimation mode: check if winrate is above break-even
+            if (winrate <= p0) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<div class="no-edge-title">You have no edge</div><div class="no-edge-subtitle">Your strategy is -EV, back to drawing board</div>';
+                resultDiv.classList.add('show');
+                hasCalculated = true;
+                return;
             }
 
             // Calculate z-score using inverse normal CDF
@@ -940,166 +749,60 @@
                 return sign * (t - num / den);
             }
             
-            // For detection: use Bonferroni-adjusted alpha (multiple testing)
-            // For estimation: use regular alpha (single parameter estimation)
+            // Estimation mode: use regular alpha (single parameter estimation)
             const alpha = 1 - selectedConfidence;
-            let z;
-            if (calculationMode === 'detection') {
-                const alphaAdj = alpha / params;
-                z = normPPF(1 - alphaAdj);
-            } else {
-                // Estimation: no Bonferroni correction (estimating single parameter)
-                z = normPPF(1 - alpha / 2); // Two-tailed for Confidence Interval
-            }
+            // Estimation: no Bonferroni correction (estimating single parameter)
+            const z = normPPF(1 - alpha / 2); // Two-tailed for Confidence Interval
 
             // Calculate variance (binomial variance term - matching Python implementation)
             // Using p * (1 - p) as in the Python code
             const variance = winrate * (1 - winrate);
 
-            // Effect size (delta)
-            // For EV > 0: delta = winrate - p0 (positive)
-            // For EV < 0: delta = p0 - winrate (positive, since winrate < p0)
-            const delta = evDirection === 'positive' ? (winrate - p0) : (p0 - winrate);
-
             // Calculate EV
             const EV = winrate * rr - (1 - winrate);
             
-            let n, resultHTML;
+            // Default Confidence Interval width is 20%
+            const defaultCIWidthPercent = 20;
+            const marginTarget = EV * (defaultCIWidthPercent / 100);
+            const seTarget = marginTarget / z;
+            const n = Math.ceil(Math.pow((rr + 1) * Math.sqrt(variance) / seTarget, 2));
             
-            if (calculationMode === 'detection') {
-                // Edge Detection: Required sample size: n = (z^2 * variance) / delta^2
-                n = Math.ceil((z * z * variance) / (delta * delta));
-                
-                const directionText = evDirection === 'positive' 
-                    ? 'This tests if EV > 0 (you have an edge).' 
-                    : 'This tests if EV < 0 (trades have negative edge, safe to remove).';
-                const labelText = evDirection === 'positive'
-                    ? 'trades to detect an edge'
-                    : 'trades to validate negative edge';
-                
-                resultHTML = `
-                    <div class="label">You need approximately</div>
-                    <div class="number" id="result-number">${n.toLocaleString()}</div>
-                    <div class="label" id="result-label">${labelText}</div>
-                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 14px; color: #666;">
-                        ${directionText} For accurate EV estimation for sizing, use "Edge Estimation" mode.
-                    </div>
-                    <div style="margin-top: 20px; text-align: center;">
-                        <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
-                    </div>
-                `;
-            } else {
-                // Edge Estimation: Calculate Confidence Interval for EV
-                const numTradesInput = parseFloat(document.getElementById('num-trades').value);
-                const ciWidthPercentInput = parseFloat(document.getElementById('ci-width').value);
-                
-                if (numTradesInput && numTradesInput > 0) {
-                    // Calculate Confidence Interval for given number of trades
-                    const seEV = (rr + 1) * Math.sqrt(variance / numTradesInput);
-                    const marginOfError = z * seEV;
-                    const evLower = Math.max(0, EV - marginOfError);
-                    const evUpper = EV + marginOfError;
-                    const actualCIWidthPercent = (marginOfError / EV) * 100;
-                    
-                    // Get desired Confidence Interval width (from input or default to 30%)
-                    const desiredCIWidthPercent = ciWidthPercentInput && ciWidthPercentInput > 0 ? ciWidthPercentInput : 30;
-                    
-                    // Calculate how many trades are needed for desired Confidence Interval width
-                    const marginTarget = EV * (desiredCIWidthPercent / 100);
-                    const seTarget = marginTarget / z;
-                    const requiredTrades = Math.ceil(Math.pow((rr + 1) * Math.sqrt(variance) / seTarget, 2));
-                    
-                    // Calculate actual CI for required trades
-                    const seEVRequired = (rr + 1) * Math.sqrt(variance / requiredTrades);
-                    const marginOfErrorRequired = z * seEVRequired;
-                    const evLowerRequired = Math.max(0, EV - marginOfErrorRequired);
-                    const evUpperRequired = EV + marginOfErrorRequired;
-                    const actualCIWidthPercentRequired = (marginOfErrorRequired / EV) * 100;
-                    
-                    // Show warning if user has fewer trades than required
-                    const showWarning = numTradesInput < requiredTrades;
-                    
-                    resultHTML = `
-                        <div class="label">You need approximately</div>
-                        <div class="number" id="result-number">${requiredTrades.toLocaleString()}</div>
-                        <div class="label" id="result-label">trades for accurate EV estimation</div>
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 14px; color: #666;">
-                            <strong>For ±${desiredCIWidthPercent}% Confidence Interval width:</strong><br>
-                            <strong>Estimated EV:</strong> ${EV.toFixed(4)}<br>
-                            <strong>${Math.round(selectedConfidence * 100)}% Confidence Interval:</strong> ${evLowerRequired.toFixed(4)} to ${evUpperRequired.toFixed(4)}<br>
-                            <strong>Confidence Interval Width:</strong> ±${actualCIWidthPercentRequired.toFixed(2)}% (absolute: ±${marginOfErrorRequired.toFixed(4)})
-                        </div>
-                        <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
-                            <div class="label">With ${numTradesInput.toLocaleString()} trades, your EV estimate:</div>
-                            <div class="number" style="font-size: 36px;">${evLower.toFixed(2)} - ${evUpper.toFixed(2)}</div>
-                            <div style="margin-top: 12px; font-size: 14px; color: #666;">
-                                Confidence Interval Width: ±${actualCIWidthPercent.toFixed(2)}% (absolute: ±${marginOfError.toFixed(4)})
-                            </div>
-                            ${showWarning ? `<div style="margin-top: 8px; font-size: 13px; color: #d97706;">⚠️ Wide Confidence Interval - you need ${requiredTrades.toLocaleString()} trades for ±${desiredCIWidthPercent}% precision</div>` : ''}
-                        </div>
-                        <div style="margin-top: 20px; text-align: center;">
-                            <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
-                        </div>
-                    `;
-                    n = numTradesInput;
-                } else if (ciWidthPercentInput && ciWidthPercentInput > 0) {
-                    // Calculate required trades for desired Confidence Interval width (as percentage of EV)
-                    // Desired margin of error as absolute value: margin = EV * (ciWidthPercent / 100)
-                    // Confidence Interval width = 2 * z * SE, so: EV * (ciWidthPercent/100) = z * (RR+1) * sqrt(variance/n)
-                    // Solving for n: n = (z * (RR+1) * sqrt(variance))² / (EV * ciWidthPercent/100)²
-                    const marginTarget = EV * (ciWidthPercentInput / 100);
-                    const seTarget = marginTarget / z;
-                    n = Math.ceil(Math.pow((rr + 1) * Math.sqrt(variance) / seTarget, 2));
-                    
-                    const seEV = (rr + 1) * Math.sqrt(variance / n);
-                    const marginOfError = z * seEV;
-                    const evLower = Math.max(0, EV - marginOfError);
-                    const evUpper = EV + marginOfError;
-                    const actualCIWidthPercent = (marginOfError / EV) * 100;
-                    
-                    resultHTML = `
-                        <div class="label">You need approximately</div>
-                        <div class="number" id="result-number">${n.toLocaleString()}</div>
-                        <div class="label" id="result-label">trades for accurate EV estimation</div>
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 14px; color: #666;">
-                            <strong>Estimated EV:</strong> ${EV.toFixed(4)}<br>
-                            <strong>${Math.round(selectedConfidence * 100)}% Confidence Interval:</strong> ${evLower.toFixed(4)} to ${evUpper.toFixed(4)}<br>
-                            <strong>Confidence Interval Width:</strong> ±${actualCIWidthPercent.toFixed(2)}% (absolute: ±${marginOfError.toFixed(4)})
-                        </div>
-                        <div style="margin-top: 20px; text-align: center;">
-                            <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
-                        </div>
-                    `;
-                } else {
-                    // No input - show required trades for a default Confidence Interval width (30%)
-                    const defaultCIWidthPercent = 30;
-                    const marginTarget = EV * (defaultCIWidthPercent / 100);
-                    const seTarget = marginTarget / z;
-                    n = Math.ceil(Math.pow((rr + 1) * Math.sqrt(variance) / seTarget, 2));
-                    
-                    resultHTML = `
-                        <div class="label">For accurate EV estimation (±30%), you need:</div>
-                        <div class="number" id="result-number">${n.toLocaleString()}</div>
-                        <div class="label" id="result-label">trades</div>
-                        <div style="margin-top: 12px; font-size: 13px; color: #666;">
-                            Enter your number of trades or desired Confidence Interval width above for a custom calculation.
-                        </div>
-                        <div style="margin-top: 20px; text-align: center;">
-                            <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
-                        </div>
-                    `;
-                }
-            }
+            // Calculate actual CI for required trades
+            const seEV = (rr + 1) * Math.sqrt(variance / n);
+            const marginOfError = z * seEV;
+            const evLower = Math.max(0, EV - marginOfError);
+            const evUpper = EV + marginOfError;
+            const actualCIWidthPercent = (marginOfError / EV) * 100;
+            
+            const resultHTML = `
+                <div class="label">You need approximately</div>
+                <div class="number" id="result-number">${n.toLocaleString()}</div>
+                <div class="label" id="result-label">trades to trust your backtest results</div>
+                <div style="margin-top: 8px; text-align: center;">
+                    <span class="help-icon-container" style="display: inline-block;">
+                        <span class="help-icon" style="width: auto; height: auto; border: none; padding: 0; font-size: 13px; color: #666; text-decoration: underline; cursor: pointer;">
+                            see why
+                            <span class="tooltip" style="width: 320px; text-align: left; bottom: calc(100% + 12px);">
+                                <strong>How we calculate this:</strong><br><br>
+                                We assume your strategy's results follow a normal distribution (Central Limit Theorem). Based on your win rate and risk-reward ratio, we calculate how many trades you need so that your estimated expected value (EV) is within ±20% of the true value with 95% confidence.<br><br>
+                                <strong>Key assumptions:</strong><br>
+                                • Your backtest results are representative of future performance<br>
+                                • Trade outcomes are independent (one trade doesn't affect another)<br>
+                                • Your win rate and risk-reward ratio stay consistent<br><br>
+                                <a href="https://stonkscapital.substack.com/p/the-mathematics-of-backtest-validation" target="_blank" style="color: #4a9eff; text-decoration: underline;">Read the full mathematical derivation →</a>
+                            </span>
+                        </span>
+                    </span>
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="monte-carlo.html?winrate=${winratePercent}&rr=${rr}" class="calculate-btn" style="display: inline-block; text-decoration: none; color: white;">Run Monte Carlo on Your Strategy</a>
+                </div>
+            `;
 
             // Display result
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = resultHTML;
             resultDiv.classList.add('show');
-            
-            // Update interpretation section with actual values (only for detection mode)
-            if (calculationMode === 'detection') {
-                updateInterpretation(n, selectedConfidence);
-            }
             
             // Mark that calculation has been done
             hasCalculated = true;
@@ -1148,46 +851,15 @@
                 // Initial positioning after a short delay to ensure styles are loaded
                 setTimeout(() => updatePercentPosition('winrate'), 100);
             }
-            
-            const ciWidthInput = document.getElementById('ci-width');
-            if (ciWidthInput) {
-                ciWidthInput.addEventListener('input', () => updatePercentPosition('ci-width'));
-                ciWidthInput.addEventListener('change', () => updatePercentPosition('ci-width'));
-                setTimeout(() => updatePercentPosition('ci-width'), 100);
-            }
         }
         
         // Initialize when DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 setupPercentPositioning();
-                // Initialize field visibility based on current mode
-                if (calculationMode === 'estimation') {
-                    document.getElementById('ci-width-group').style.display = 'block';
-                    document.getElementById('num-trades-group').style.display = 'block';
-                    document.getElementById('params-group').style.display = 'none';
-                    document.getElementById('ev-direction-group').style.display = 'none';
-                } else {
-                    document.getElementById('params-group').style.display = 'block';
-                    document.getElementById('ev-direction-group').style.display = 'block';
-                    document.getElementById('ci-width-group').style.display = 'none';
-                    document.getElementById('num-trades-group').style.display = 'none';
-                }
             });
         } else {
             setupPercentPositioning();
-            // Initialize field visibility based on current mode
-            if (calculationMode === 'estimation') {
-                document.getElementById('ci-width-group').style.display = 'block';
-                document.getElementById('num-trades-group').style.display = 'block';
-                document.getElementById('params-group').style.display = 'none';
-                document.getElementById('ev-direction-group').style.display = 'none';
-            } else {
-                document.getElementById('params-group').style.display = 'block';
-                document.getElementById('ev-direction-group').style.display = 'block';
-                document.getElementById('ci-width-group').style.display = 'none';
-                document.getElementById('num-trades-group').style.display = 'none';
-            }
         }
 
         // Allow Enter key to calculate
