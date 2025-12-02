@@ -260,6 +260,12 @@
             pointer-events: auto !important;
         }
 
+        /* Show tooltip when clicked (for mobile) */
+        .help-icon-container.active .tooltip {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
         .confidence-options {
             display: flex;
             gap: 10px;
@@ -680,8 +686,8 @@
                 <div class="number" id="result-number">${n.toLocaleString()}</div>
                 <div class="label" id="result-label">trades to trust your backtest results</div>
                 <div style="margin-top: 8px; text-align: center;">
-                    <span class="help-icon-container" style="display: inline-block;">
-                        <span class="help-icon" style="width: auto; height: auto; border: none; padding: 0; font-size: 13px; color: #666; text-decoration: underline; cursor: pointer;">
+                    <span class="help-icon-container see-why-container" style="display: inline-block;">
+                        <span class="help-icon see-why-trigger" style="width: auto; height: auto; border: none; padding: 0; font-size: 13px; color: #666; text-decoration: underline; cursor: pointer;">
                             see why
                             <span class="tooltip" style="width: 320px; text-align: left; bottom: calc(100% + 12px);">
                                 <strong>How we calculate this:</strong><br><br>
@@ -704,6 +710,28 @@
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = resultHTML;
             resultDiv.classList.add('show');
+            
+            // Setup click handler for "see why" tooltip (for mobile)
+            const seeWhyContainer = resultDiv.querySelector('.see-why-container');
+            if (seeWhyContainer) {
+                const seeWhyTrigger = seeWhyContainer.querySelector('.see-why-trigger');
+                if (seeWhyTrigger) {
+                    seeWhyTrigger.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        seeWhyContainer.classList.toggle('active');
+                    });
+                }
+            }
+            
+            // Close tooltip when clicking outside
+            document.addEventListener('click', (e) => {
+                const seeWhyContainers = document.querySelectorAll('.see-why-container');
+                seeWhyContainers.forEach(container => {
+                    if (!container.contains(e.target)) {
+                        container.classList.remove('active');
+                    }
+                });
+            });
             
             // Mark that calculation has been done
             hasCalculated = true;
