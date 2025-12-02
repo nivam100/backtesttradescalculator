@@ -1,10 +1,14 @@
-# The Mathematics of Backtest Validation: How Many Trades Do You Actually Need?
+# The Mathematics of Backtest Validation: How Many Trades Do You Need to Trust Your Results?
 
 ## Introduction
 
-You've run a backtest. You have a win rate, a risk-reward ratio, and you've optimized some parameters. The equity curve looks promising. But how many trades do you need to see in that backtest to be confident your strategy has a real edge, not just luck?
+You've run a backtest. Your strategy shows a 60% win rate with a 1:4 risk-reward ratio. The equity curve looks promising. But here's the critical question:
 
-This is fundamentally a **sample size calculation** problem in statistics. We need to determine the minimum number of independent trades required to detect a statistically significant edge with a given confidence level, while accounting for the multiple testing problem introduced by parameter optimization.
+**How many trades do you need to accurately estimate your Expected Value (EV) for position sizing decisions?**
+
+This is fundamentally a **confidence interval** problem in statistics. We need to determine the minimum number of independent trades required to estimate your EV within a desired precision (e.g., ±20%) with a given confidence level (e.g., 95%).
+
+Unlike edge detection (which asks "Do I have an edge?"), EV estimation asks: "What is my edge, and how precisely do I know it?"
 
 In this post, we'll derive the exact formula from first principles, step by step.
 
@@ -12,13 +16,7 @@ In this post, we'll derive the exact formula from first principles, step by step
 
 ## 1. The Statistical Framework
 
-### 1.1 Hypothesis Testing Setup
-
-We want to test whether our strategy has a positive expected value. Let's formalize this:
-
-**Null Hypothesis (H₀):** The strategy has no edge (EV = 0)
-
-**Alternative Hypothesis (H₁):** The strategy has a positive edge (EV > 0)
+### 1.1 Expected Value (EV)
 
 For a strategy with win rate $p$ and risk-reward ratio $RR$ (defined as reward:risk, e.g., RR = 4 means we risk 1 unit to gain 4 units):
 
@@ -37,20 +35,30 @@ $$
 EV = p \cdot RR - 1 + p = p(RR + 1) - 1
 $$
 
-The break-even win rate (where EV = 0) is:
+**Example:** With 60% win rate and 1:4 risk-reward:
+- $EV = 0.60 \times 4 - (1 - 0.60) = 2.4 - 0.4 = 2.0$
 
-$$
-p_0 = \frac{1}{1 + RR}
-$$
+So you expect to make 2 units per trade on average.
 
-So our hypothesis test becomes:
+### 1.2 The Problem: Estimating EV with Confidence
 
-- **H₀:** $p = p_0$ (no edge)
-- **H₁:** $p > p_0$ (positive edge)
+When you backtest, you observe a sample of trades. From this sample, you estimate:
+- Your win rate: $\hat{p} = \frac{\text{number of wins}}{n}$
+- Your EV: $\widehat{EV} = \hat{p}(RR + 1) - 1$
 
-### 1.2 Test Statistic
+But this is just an **estimate**. The true EV might be different. We want to know:
 
-Each trade is a Bernoulli trial: win with probability $p$, lose with probability $1-p$. 
+**"How many trades do I need so that my EV estimate is within ±20% of the true value, with 95% confidence?"**
+
+This means: If your true EV is 2.0, you want your estimate to be between 1.6 and 2.4, and you want to be 95% confident this range contains the true value.
+
+---
+
+## 2. Confidence Intervals for EV
+
+### 2.1 The Central Limit Theorem
+
+Each trade is a Bernoulli trial: win with probability $p$, lose with probability $1-p$.
 
 For $n$ independent trades, the number of wins $X$ follows a binomial distribution:
 
@@ -64,283 +72,263 @@ $$
 \hat{p} \sim \mathcal{N}\left(p, \frac{p(1-p)}{n}\right)
 $$
 
-Under the null hypothesis ($p = p_0$), we have:
+This means the win rate estimate is approximately normally distributed with:
+- **Mean:** $p$ (the true win rate)
+- **Variance:** $\frac{p(1-p)}{n}$
+
+### 2.2 Standard Error of EV
+
+Since $EV = p(RR + 1) - 1$, and we're estimating $p$ with $\hat{p}$, we need to find the standard error of our EV estimate.
+
+Using the formula for the variance of a linear transformation:
 
 $$
-\hat{p} \sim \mathcal{N}\left(p_0, \frac{p_0(1-p_0)}{n}\right)
+\text{Var}(\widehat{EV}) = \text{Var}(\hat{p}(RR + 1) - 1) = (RR + 1)^2 \cdot \text{Var}(\hat{p})
 $$
 
-However, we'll use the observed variance $\hat{p}(1-\hat{p})$ in our calculations, which gives us the test statistic:
+Since $\text{Var}(\hat{p}) = \frac{p(1-p)}{n}$:
 
 $$
-Z = \frac{\hat{p} - p_0}{\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}}
+\text{Var}(\widehat{EV}) = (RR + 1)^2 \cdot \frac{p(1-p)}{n}
 $$
 
-This follows approximately a standard normal distribution under H₀.
+The **standard error** of EV is the square root of the variance:
+
+$$
+\text{SE}(\widehat{EV}) = (RR + 1) \cdot \sqrt{\frac{p(1-p)}{n}}
+$$
+
+For practical purposes, we use the observed variance $\hat{p}(1-\hat{p})$ instead of $p(1-p)$:
+
+$$
+\text{SE}(\widehat{EV}) = (RR + 1) \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{n}}
+$$
+
+Let $v = \hat{p}(1-\hat{p})$ be the variance term. Then:
+
+$$
+\text{SE}(\widehat{EV}) = (RR + 1) \cdot \sqrt{\frac{v}{n}}
+$$
+
+### 2.3 Margin of Error
+
+The **margin of error** is how far off our estimate might be. For a confidence level of $(1-\alpha)$ (e.g., 95% means $\alpha = 0.05$), we use the critical value $z_{1-\alpha/2}$ from the standard normal distribution.
+
+For 95% confidence, $z_{0.975} \approx 1.96$.
+
+The margin of error is:
+
+$$
+\text{Margin of Error} = z_{1-\alpha/2} \cdot \text{SE}(\widehat{EV})
+$$
+
+$$
+\text{Margin of Error} = z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{\frac{v}{n}}
+$$
+
+### 2.4 Confidence Interval
+
+The confidence interval for EV is:
+
+$$
+\widehat{EV} \pm \text{Margin of Error}
+$$
+
+Or more precisely:
+
+$$
+\left[ \widehat{EV} - z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{\frac{v}{n}}, \quad \widehat{EV} + z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{\frac{v}{n}} \right]
+$$
 
 ---
 
-## 2. Sample Size Calculation
+## 3. Sample Size Calculation
 
-### 2.1 Power Analysis
+### 3.1 Desired Precision
 
-We want to detect when our strategy has a real edge. This is a **power analysis** problem.
-
-Given:
-- **Significance level (α):** Probability of Type I error (false positive) = $1 - \text{confidence}$
-- **Power (1 - β):** Probability of detecting a real edge = typically 0.80
-- **Effect size (δ):** The difference we want to detect = $p - p_0$
-
-We need to find the minimum sample size $n$ such that we can reject H₀ when $p > p_0$ with the desired power.
-
-### 2.2 The Formula Derivation
-
-For a one-sided test, we reject H₀ when:
+We want the margin of error to be a certain percentage of the EV. For example, ±20% means:
 
 $$
-Z = \frac{\hat{p} - p_0}{\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}} > z_{1-\alpha}
+\text{Margin of Error} = EV \cdot \frac{\text{CI Width \%}}{100}
 $$
 
-Where $z_{1-\alpha}$ is the critical value from the standard normal distribution.
-
-We want this rejection to occur with probability $(1-\beta)$ when the true win rate is $p > p_0$.
-
-When $p$ is the true win rate, the distribution of $\hat{p}$ is:
-
+If we want ±20% precision:
 $$
-\hat{p} \sim \mathcal{N}\left(p, \frac{p(1-p)}{n}\right)
+\text{Margin of Error} = EV \cdot 0.20
 $$
 
-For the power calculation, we need:
+### 3.2 Solving for Sample Size
+
+We want:
 
 $$
-P\left(\frac{\hat{p} - p_0}{\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}} > z_{1-\alpha} \mid p\right) = 1 - \beta
-$$
-
-This can be rewritten as:
-
-$$
-P\left(\hat{p} > p_0 + z_{1-\alpha}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} \mid p\right) = 1 - \beta
-$$
-
-For large $n$, we can approximate $\hat{p}(1-\hat{p}) \approx p(1-p)$ in the denominator. Standardizing:
-
-$$
-P\left(\frac{\hat{p} - p}{\sqrt{\frac{p(1-p)}{n}}} > \frac{p_0 + z_{1-\alpha}\sqrt{\frac{p(1-p)}{n}} - p}{\sqrt{\frac{p(1-p)}{n}}} \mid p\right) = 1 - \beta
-$$
-
-Simplifying the right-hand side:
-
-$$
-\frac{p_0 + z_{1-\alpha}\sqrt{\frac{p(1-p)}{n}} - p}{\sqrt{\frac{p(1-p)}{n}}} = \frac{p_0 - p}{\sqrt{\frac{p(1-p)}{n}}} + z_{1-\alpha}
-$$
-
-Since $(p_0 - p) = -\delta$ (where $\delta = p - p_0$ is the effect size):
-
-$$
-= -\frac{\delta}{\sqrt{\frac{p(1-p)}{n}}} + z_{1-\alpha}
-$$
-
-This must equal $z_{1-\beta}$ (since we want probability $1-\beta$ in the right tail):
-
-$$
--\frac{\delta}{\sqrt{\frac{p(1-p)}{n}}} + z_{1-\alpha} = z_{1-\beta}
-$$
-
-Rearranging:
-
-$$
-z_{1-\alpha} - z_{1-\beta} = \frac{\delta}{\sqrt{\frac{p(1-p)}{n}}}
-$$
-
-$$
-z_{1-\alpha} - z_{1-\beta} = \frac{\delta \sqrt{n}}{\sqrt{p(1-p)}}
+z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{\frac{v}{n}} = EV \cdot \frac{\text{CI Width \%}}{100}
 $$
 
 Solving for $n$:
 
 $$
-\sqrt{n} = \frac{(z_{1-\alpha} - z_{1-\beta}) \sqrt{p(1-p)}}{\delta}
+\sqrt{\frac{v}{n}} = \frac{EV \cdot \frac{\text{CI Width \%}}{100}}{z_{1-\alpha/2} \cdot (RR + 1)}
 $$
 
 $$
-n = \frac{(z_{1-\alpha} - z_{1-\beta})^2 \cdot p(1-p)}{\delta^2}
+\frac{v}{n} = \left( \frac{EV \cdot \frac{\text{CI Width \%}}{100}}{z_{1-\alpha/2} \cdot (RR + 1)} \right)^2
 $$
 
-However, in practice, we often simplify this to focus on the significance level. For a more conservative approach (ensuring we can detect the edge), we use:
-
 $$
-n = \frac{z_{1-\alpha}^2 \cdot p(1-p)}{\delta^2}
+n = \frac{v}{\left( \frac{EV \cdot \frac{\text{CI Width \%}}{100}}{z_{1-\alpha/2} \cdot (RR + 1)} \right)^2}
 $$
 
-Where:
-- $z_{1-\alpha}$ is the critical value for our confidence level
-- $p(1-p)$ is the variance of the binomial distribution
-- $\delta = p - p_0$ is the effect size
-
-This gives us the minimum sample size to achieve significance. With 80% power (the typical standard), we'd have $z_{1-\beta} = z_{0.80} \approx 0.84$, which would reduce the required sample size. Using only $z_{1-\alpha}$ gives a more conservative estimate.
-
----
-
-## 3. Multiple Testing Problem: Bonferroni Correction
-
-### 3.1 The Problem
-
-When you optimize parameters, you're not testing one hypothesis—you're testing many. If you test 10 different parameter combinations and pick the best, you've essentially performed 10 hypothesis tests.
-
-The **family-wise error rate** (FWER) is the probability of at least one false positive across all tests. If you test $m$ hypotheses at significance level $\alpha$, the FWER can be as high as $m \cdot \alpha$ (for independent tests).
-
-### 3.2 Bonferroni Correction
-
-The **Bonferroni correction** controls the FWER by adjusting the significance level:
+Rearranging:
 
 $$
-\alpha_{\text{adjusted}} = \frac{\alpha}{m}
+n = v \cdot \left( \frac{z_{1-\alpha/2} \cdot (RR + 1)}{EV \cdot \frac{\text{CI Width \%}}{100}} \right)^2
 $$
 
-Where $m$ is the number of parameters optimized (or hypotheses tested).
-
-This ensures:
+Simplifying:
 
 $$
-\text{FWER} \leq m \cdot \frac{\alpha}{m} = \alpha
+n = \left( \frac{z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{v}}{EV \cdot \frac{\text{CI Width \%}}{100}} \right)^2
 $$
 
-### 3.3 Adjusted Sample Size Formula
+This is the formula we use.
 
-With Bonferroni correction, we use $\alpha_{\text{adjusted}} = \alpha/m$ in our sample size calculation:
-
-$$
-n = \frac{z_{1-\alpha/m}^2 \cdot p(1-p)}{\delta^2}
-$$
-
-Since $z_{1-\alpha/m} > z_{1-\alpha}$ (because we're using a smaller alpha), this increases the required sample size—which makes sense, as we need more evidence when we've done more testing.
-
----
-
-## 4. Complete Formula
+### 3.3 Complete Formula
 
 Putting it all together, the required number of trades is:
 
 $$
-n = \left\lceil \frac{z_{1-\alpha/m}^2 \cdot p(1-p)}{(p - p_0)^2} \right\rceil
+n = \left\lceil \left( \frac{z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{p(1-p)}}{EV \cdot \frac{\text{CI Width \%}}{100}} \right)^2 \right\rceil
 $$
 
 Where:
-- $p$ = observed win rate (as decimal, e.g., 0.25 for 25%)
+- $p$ = win rate (as decimal, e.g., 0.60 for 60%)
 - $RR$ = reward:risk ratio (e.g., 4 for 1:4 risk-reward)
-- $p_0 = \frac{1}{1 + RR}$ = break-even win rate
-- $\alpha = 1 - \text{confidence}$ (e.g., 0.01 for 99% confidence)
-- $m$ = number of parameters optimized
-- $z_{1-\alpha/m}$ = critical value from standard normal distribution
-- $\delta = p - p_0$ = effect size
+- $EV = p(RR + 1) - 1$ = expected value per trade
+- $v = p(1-p)$ = variance of win rate
+- $\text{CI Width \%}$ = desired confidence interval width as percentage (e.g., 20 for ±20%)
+- $z_{1-\alpha/2}$ = critical value from standard normal distribution (e.g., 1.96 for 95% confidence)
 - $\lceil \cdot \rceil$ = ceiling function (round up)
 
-### 4.1 Implementation Notes
+### 3.4 Implementation Notes
 
-**If $p \leq p_0$:** The strategy has no edge (EV ≤ 0), so no finite number of trades will make it statistically significant. Return infinity.
+**If $p \leq p_0$:** The strategy has no edge (EV ≤ 0), where $p_0 = \frac{1}{1 + RR}$ is the break-even win rate. The calculation doesn't apply for -EV strategies.
 
-**Variance term:** We use $p(1-p)$ instead of $p_0(1-p_0)$ because we're testing against the observed win rate, and this gives us a more conservative estimate.
+**Variance term:** We use $p(1-p)$ which captures the uncertainty in our win rate estimate.
 
-**Z-score calculation:** The critical value $z_{1-\alpha/m}$ comes from the inverse cumulative distribution function (CDF) of the standard normal distribution:
+**Z-score calculation:** The critical value $z_{1-\alpha/2}$ comes from the inverse cumulative distribution function (CDF) of the standard normal distribution:
 
 $$
-z_{1-\alpha/m} = \Phi^{-1}(1 - \alpha/m)
+z_{1-\alpha/2} = \Phi^{-1}(1 - \alpha/2)
 $$
 
 Where $\Phi^{-1}$ is the inverse of the standard normal CDF.
 
+For 95% confidence ($\alpha = 0.05$):
+$$
+z_{0.975} = \Phi^{-1}(0.975) \approx 1.96
+$$
+
 ---
 
-## 5. Why Each Component Matters
+## 4. Why Each Component Matters
 
-### 5.1 Why Effect Size ($\delta = p - p_0$) is Squared
+### 4.1 Why Variance Matters
 
-The effect size appears squared in the denominator because:
-- **Smaller edges require exponentially more data** to detect
-- This is a fundamental property of hypothesis testing: distinguishing between two close probabilities requires many samples
-
-For example:
-- Distinguishing 25% from 20% (5% edge) requires about 4× more trades than distinguishing 30% from 20% (10% edge)
-
-### 5.2 Why Variance Matters
-
-The variance term $p(1-p)$ captures the uncertainty in our win rate estimate:
+The variance term $p(1-p)$ captures the uncertainty in your win rate estimate:
 - **Low win rates (or high win rates)** have lower variance: $0.1(1-0.1) = 0.09$
 - **50% win rate** has maximum variance: $0.5(1-0.5) = 0.25$
 
-Higher variance means more uncertainty, requiring more trades to reach the same confidence level.
+Higher variance means more uncertainty, requiring more trades to reach the same precision.
 
-### 5.3 Why Multiple Testing Increases Sample Size
+### 4.2 Why Risk-Reward Matters
 
-When $m$ parameters are optimized:
-- $\alpha/m$ is smaller than $\alpha$
-- $z_{1-\alpha/m}$ is larger than $z_{1-\alpha}$
-- Since $n \propto z^2$, the sample size increases quadratically
+The $(RR + 1)$ term amplifies the uncertainty. Higher risk-reward ratios create more variance in your returns, even with the same win rate variance.
 
-For example, with 99% confidence ($\alpha = 0.01$):
-- 1 parameter: $z_{0.99} \approx 2.33$
-- 10 parameters: $z_{0.999} \approx 3.09$
+**Example:** 
+- Strategy A: 50% win rate, 1:2 risk-reward → Lower variance
+- Strategy B: 50% win rate, 1:5 risk-reward → Higher variance
 
-This means you need $(3.09/2.33)^2 \approx 1.76×$ more trades with 10 parameters versus 1 parameter.
+Strategy B needs more trades because the higher risk-reward amplifies the uncertainty.
+
+### 4.3 Why Desired Precision Matters
+
+The desired CI width appears in the denominator, squared. This means:
+- **Halving the CI width** (from ±20% to ±10%) requires **4× more trades**
+- **Doubling the CI width** (from ±20% to ±40%) requires **4× fewer trades**
+
+This is why ±20% is a reasonable default—it balances precision with practicality.
+
+### 4.4 Why Confidence Level Matters
+
+Higher confidence levels require larger z-scores:
+- 90% confidence: $z = 1.645$
+- 95% confidence: $z = 1.96$
+- 99% confidence: $z = 2.576$
+
+Since $n \propto z^2$, going from 95% to 99% confidence requires $(2.576/1.96)^2 \approx 1.73×$ more trades.
 
 ---
 
-## 6. Example Calculation
+## 5. Example Calculation
 
 Let's work through an example:
 
 **Inputs:**
-- Win rate: $p = 0.25$ (25%)
+- Win rate: $p = 0.60$ (60%)
 - Risk-reward: $RR = 4$ (1:4)
-- Confidence: 99% ($\alpha = 0.01$)
-- Parameters optimized: $m = 3$
+- Desired CI width: 20% (±20%)
+- Confidence level: 95% ($\alpha = 0.05$)
 
-**Step 1: Calculate break-even win rate**
+**Step 1: Calculate EV**
 $$
-p_0 = \frac{1}{1 + 4} = \frac{1}{5} = 0.20
-$$
-
-**Step 2: Check for edge**
-$$
-p = 0.25 > 0.20 = p_0 \quad \checkmark
-$$
-Strategy has an edge.
-
-**Step 3: Bonferroni-adjusted alpha**
-$$
-\alpha_{\text{adj}} = \frac{0.01}{3} = 0.00333...
+EV = 0.60 \times 4 - (1 - 0.60) = 2.4 - 0.4 = 2.0
 $$
 
-**Step 4: Calculate z-score**
+**Step 2: Calculate variance**
 $$
-z_{1-\alpha/m} = z_{0.99667} \approx 2.72
-$$
-
-(Using standard normal table or `scipy.stats.norm.ppf(0.99667)`)
-
-**Step 5: Calculate variance**
-$$
-\text{var} = p(1-p) = 0.25 \times 0.75 = 0.1875
+v = p(1-p) = 0.60 \times 0.40 = 0.24
 $$
 
-**Step 6: Calculate effect size**
+**Step 3: Get z-score**
+For 95% confidence, $z_{0.975} = 1.96$
+
+**Step 4: Calculate margin target**
 $$
-\delta = p - p_0 = 0.25 - 0.20 = 0.05
+\text{Margin Target} = EV \times \frac{20}{100} = 2.0 \times 0.20 = 0.40
 $$
 
-**Step 7: Calculate required sample size**
+**Step 5: Calculate standard error target**
 $$
-n = \frac{(2.72)^2 \times 0.1875}{(0.05)^2} = \frac{7.3984 \times 0.1875}{0.0025} = \frac{1.3872}{0.0025} = 554.88
+\text{SE Target} = \frac{\text{Margin Target}}{z} = \frac{0.40}{1.96} \approx 0.204
+$$
+
+**Step 6: Calculate required sample size**
+$$
+n = \left( \frac{(RR + 1) \cdot \sqrt{v}}{\text{SE Target}} \right)^2
 $$
 
 $$
-n = \lceil 554.88 \rceil = 555 \text{ trades}
+n = \left( \frac{(4 + 1) \cdot \sqrt{0.24}}{0.204} \right)^2
 $$
+
+$$
+n = \left( \frac{5 \times 0.490}{0.204} \right)^2
+$$
+
+$$
+n = \left( \frac{2.449}{0.204} \right)^2
+$$
+
+$$
+n = (12.00)^2 = 144
+$$
+
+So you need **144 trades** to estimate your EV within ±20% with 95% confidence.
 
 ---
 
-## 7. Limitations and Assumptions
+## 6. Limitations and Assumptions
 
 This calculation makes several assumptions:
 
@@ -349,61 +337,87 @@ This calculation makes several assumptions:
 3. **Fixed risk-reward:** Risk-reward ratio is consistent
 4. **Large sample approximation:** Uses CLT, which requires sufficient $n$
 5. **Binomial model:** Each trade is win/loss (no partial outcomes)
+6. **Normal approximation:** Assumes normal distribution of win rate estimate
 
 **When these assumptions break down:**
 - If trades are correlated, you need even more samples
 - If market conditions change, you need to test across different regimes
 - If risk-reward varies, the calculation becomes more complex
+- If you have partial wins/losses, you need a different model
 
 ---
 
-## 8. Alternative Approaches
+## 7. Comparison with Edge Detection
 
-### 8.1 Simulation-Based Methods
+It's important to distinguish between:
 
-Instead of analytical formulas, you could:
-1. Simulate thousands of backtests under the null hypothesis (no edge)
-2. Count how many times you'd observe your results by chance
-3. This is the basis of **permutation testing** and **bootstrap methods**
+**Edge Detection (Hypothesis Testing):**
+- **Question:** "Do I have an edge? (Is EV > 0?)"
+- **Formula:** $n = \frac{z^2 \cdot p(1-p)}{(p - p_0)^2}$
+- **Purpose:** Detect if strategy is profitable
+- **Requires:** Fewer trades (just to confirm edge exists)
 
-### 8.2 Sequential Testing
+**EV Estimation (Confidence Intervals):**
+- **Question:** "What is my EV, and how precisely do I know it?"
+- **Formula:** $n = \left( \frac{z \cdot (RR + 1) \cdot \sqrt{p(1-p)}}{EV \cdot \frac{\text{CI Width \%}}{100}} \right)^2$
+- **Purpose:** Estimate EV for position sizing
+- **Requires:** More trades (to know EV precisely)
 
-For ongoing backtests:
-- Use **sequential analysis** to stop early when significance is reached
-- More efficient but requires more complex statistics
+**Example:** A strategy might need 100 trades to confirm it has an edge (EV > 0), but 500+ trades to estimate that EV is 0.25 ± 0.05 with 95% confidence.
 
-### 8.3 Bayesian Approaches
+---
 
-- Start with a prior distribution on win rate
-- Update based on observed trades
-- Gives probability distributions rather than binary significance tests
+## 8. Practical Implications
+
+### 8.1 Most Traders Underestimate
+
+Most traders dramatically underestimate how many trades they need. A strategy with:
+- 50% win rate, 1:2 risk-reward might need 500+ trades
+- 70% win rate, 1:3 risk-reward might only need 100 trades
+
+The difference? **Variance and effect size.**
+
+### 8.2 Position Sizing Decisions
+
+This formula is critical for position sizing methods like:
+- **Kelly Criterion:** Requires accurate EV estimate
+- **Fixed Fractional Sizing:** Needs to know EV to set risk percentage
+- **Risk Management:** Can't size positions without knowing EV precision
+
+If your EV estimate has a wide confidence interval (±50%), you can't confidently size positions. You need more trades.
+
+### 8.3 The Trade-off
+
+There's always a trade-off:
+- **More precision** (narrower CI) = **More trades needed**
+- **Higher confidence** = **More trades needed**
+- **Higher variance** = **More trades needed**
+
+The ±20% default is a practical balance—precise enough for sizing decisions, but not so strict that it requires thousands of trades.
 
 ---
 
 ## 9. Conclusion
 
-The required sample size formula:
+The required sample size formula for EV estimation:
 
 $$
-n = \left\lceil \frac{z_{1-\alpha/m}^2 \cdot p(1-p)}{(p - p_0)^2} \right\rceil
+n = \left\lceil \left( \frac{z_{1-\alpha/2} \cdot (RR + 1) \cdot \sqrt{p(1-p)}}{EV \cdot \frac{\text{CI Width \%}}{100}} \right)^2 \right\rceil
 $$
 
 Is derived from fundamental statistical principles:
-- **Hypothesis testing** to detect a positive edge
 - **Central Limit Theorem** to approximate the binomial distribution
-- **Power analysis** to ensure we can detect the edge
-- **Bonferroni correction** to account for multiple testing
+- **Confidence intervals** to quantify uncertainty
+- **Standard error** to measure precision
 
-This isn't just a heuristic—it's rigorous statistical inference. When you see "you need 555 trades," that means: *with 555 trades, you can be 99% confident (accounting for 3 parameters optimized) that your observed 25% win rate with 1:4 risk-reward represents a real edge, not random chance.*
+This isn't just a heuristic—it's rigorous statistical inference. When you see "you need 144 trades," that means: *with 144 trades, you can be 95% confident that your EV estimate is within ±20% of the true value.*
 
-Use this formula to validate your backtests before risking real capital. The mathematics are sound—but remember, statistical significance doesn't guarantee future profitability. Market conditions change, execution matters, and edge erosion is real.
+Use this formula to validate your backtests before making position sizing decisions. The mathematics are sound—but remember, statistical precision doesn't guarantee future profitability. Market conditions change, execution matters, and edge erosion is real.
 
 ---
 
 ## References
 
-- White, H. (2000). "A Reality Check for Data Snooping." *Econometrica*, 68(5), 1097-1126.
-- Lo, A. W., & MacKinlay, A. C. (1990). "Data-Snooping Biases in Tests of Financial Asset Pricing Models." *Review of Financial Studies*, 3(3), 431-467.
-- Bonferroni, C. E. (1936). "Teoria statistica delle classi e calcolo delle probabilità." *Pubblicazioni del R Istituto Superiore di Scienze Economiche e Commerciali di Firenze*, 8, 3-62.
 - Casella, G., & Berger, R. L. (2002). *Statistical Inference*. Duxbury.
-
+- Rice, J. A. (2006). *Mathematical Statistics and Data Analysis*. Duxbury Press.
+- Central Limit Theorem: The foundation for normal approximation of sample means.
