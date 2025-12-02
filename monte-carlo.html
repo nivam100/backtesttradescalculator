@@ -678,8 +678,8 @@
                     }
                 }
                 
-                // Auto-calculate if user has already calculated once
-                if (hasCalculated) {
+                // Auto-calculate if user has already calculated once (but not for fixed-ratio)
+                if (hasCalculated && sizingMethod !== 'fixed-ratio') {
                     runSimulation();
                 }
             });
@@ -1185,23 +1185,11 @@
             if (fixedRatioInput) {
                 fixedRatioInput.addEventListener('input', () => {
                     updatePercentPosition('fixed-ratio');
-                    // Auto-calculate if user has already calculated once and input is complete
-                    // Skip if input is incomplete (ends with "." or is empty)
-                    const value = fixedRatioInput.value.trim();
-                    if (hasCalculated && sizingMethod === 'fixed-ratio' && value !== '' && !value.endsWith('.')) {
-                        // Only auto-calculate if we have a complete number
-                        const numValue = parseFloat(value);
-                        if (!isNaN(numValue) && numValue >= 0.1 && numValue <= 25) {
-                            runSimulation();
-                        }
-                    }
+                    // Don't auto-calculate on input - only recalculate on Enter key press
                 });
                 fixedRatioInput.addEventListener('change', () => {
                     updatePercentPosition('fixed-ratio');
-                    // Auto-calculate if user has already calculated once
-                    if (hasCalculated && sizingMethod === 'fixed-ratio') {
-                        runSimulation();
-                    }
+                    // Don't auto-calculate on change - only recalculate on Enter key press
                 });
                 setTimeout(() => updatePercentPosition('fixed-ratio'), 100);
             }
