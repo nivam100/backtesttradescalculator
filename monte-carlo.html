@@ -57,7 +57,12 @@
             z-index: 10;
         }
 
-        .nav-menu a {
+        .nav-menu-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .nav-menu-button {
             color: #1a1a1a;
             text-decoration: none;
             font-size: 14px;
@@ -68,11 +73,92 @@
             background: white;
             transition: all 0.2s;
             display: inline-block;
+            cursor: pointer;
         }
 
-        .nav-menu a:hover {
+        .nav-menu-button:hover {
             background: #fafafa;
             border-color: #1a1a1a;
+        }
+
+        .nav-menu-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 2px);
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            min-width: 160px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding-top: 4px;
+            margin-top: -2px;
+        }
+
+        .nav-menu-dropdown-content::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .nav-menu-dropdown-content a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px 16px;
+            display: block;
+            transition: background 0.2s;
+        }
+
+        .nav-menu-dropdown-content a:hover {
+            background: #fafafa;
+        }
+
+        .nav-menu-dropdown-content a:first-child {
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+        }
+
+        .nav-menu-dropdown-content a:last-child {
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+
+        .twitter-feedback-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 10px 16px;
+            text-decoration: none;
+            color: #1a1a1a;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+
+        .twitter-feedback-button:hover {
+            background: #fafafa;
+            border-color: #1a1a1a;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .twitter-feedback-button svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
         }
 
         .container {
@@ -500,9 +586,14 @@
         made with <span class="heart">❤️</span> by <a href="https://stonkscapital.substack.com/" target="_blank">stonks capital</a>
     </div>
     <div class="nav-menu">
-        <a href="index.html">Calculator</a>
-        <a href="correlation.html">Correlation</a>
-        <a href="portfolio-builder.html">Portfolio Builder</a>
+        <div class="nav-menu-dropdown">
+            <div class="nav-menu-button">Tools</div>
+            <div class="nav-menu-dropdown-content">
+                <a href="index.html">Sample Size Calculator</a>
+                <a href="correlation.html">Correlation</a>
+                <a href="portfolio-builder.html">Portfolio Builder</a>
+            </div>
+        </div>
     </div>
     <div class="container">
         <div class="header">
@@ -664,6 +755,29 @@
                 }
             }
         });
+
+        // Improve dropdown hover behavior
+        (function() {
+            const dropdown = document.querySelector('.nav-menu-dropdown');
+            if (!dropdown) return;
+            
+            let hideTimeout;
+            const content = dropdown.querySelector('.nav-menu-dropdown-content');
+            
+            function showDropdown() {
+                clearTimeout(hideTimeout);
+                content.style.display = 'block';
+            }
+            
+            function hideDropdown() {
+                hideTimeout = setTimeout(() => {
+                    content.style.display = 'none';
+                }, 200); // 200ms delay before hiding
+            }
+            
+            dropdown.addEventListener('mouseenter', showDropdown);
+            dropdown.addEventListener('mouseleave', hideDropdown);
+        })();
 
         // Position sizing button handlers
         document.querySelectorAll('.sizing-btn[data-sizing]').forEach(btn => {
@@ -1264,6 +1378,12 @@
             document.head.appendChild(script);
         })();
     </script>
+    <a href="https://x.com/messages/compose?recipient_id=3130204764" target="_blank" rel="noopener noreferrer" class="twitter-feedback-button">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+        <span>Request Feature</span>
+    </a>
 </body>
 </html>
 
