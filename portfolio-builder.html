@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Builder - Backtest Sample Size Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fafafa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            position: relative;
+        }
+
+        .attribution {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: #999;
+            z-index: 10;
+        }
+
+        .attribution a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .attribution a:hover {
+            opacity: 0.7;
+            text-decoration: underline;
+        }
+
+        .attribution .heart {
+            display: inline-block;
+            font-style: normal;
+        }
+
+        .nav-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-menu a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: white;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .nav-menu a:hover {
+            background: #fafafa;
+            border-color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fafafa;
+        }
+
+        .header {
+            background: #fafafa;
+            color: #1a1a1a;
+            padding: 48px 32px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.4;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .content {
+            padding: 0px 32px 40px 32px;
+            background: #fafafa;
+        }
+
+        .calculator {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+            font-size: 14px;
+        }
+
+        .strategy-item {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .strategy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .strategy-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1a1a1a;
+        }
+
+        .strategy-remove {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+            transition: color 0.2s;
+        }
+
+        .strategy-remove:hover {
+            color: #1a1a1a;
+        }
+
+        .strategy-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .strategy-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .strategy-input-group label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .strategy-input-group input {
+            padding: 8px 12px;
+            border: 1px solid #d1d1d1;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .strategy-input-group input:focus {
+            outline: none;
+            border-color: #1a1a1a;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        }
+
+
+        .drop-zone {
+            border: 2px dashed #d1d1d1;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #fafafa;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .drop-zone:hover {
+            border-color: #1a1a1a;
+            background: #f5f5f5;
+        }
+
+        .drop-zone.dragover {
+            border-color: #1a1a1a;
+            background: #f0f0f0;
+        }
+
+        .drop-zone.has-file {
+            border-color: #1a1a1a;
+            background: white;
+            padding: 20px;
+        }
+
+        .drop-zone-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px auto;
+            opacity: 0.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .drop-zone-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-zone-text {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-hint {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 6px;
+            margin-top: 12px;
+        }
+
+        .file-name {
+            font-size: 14px;
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+
+        .file-remove {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+            transition: color 0.2s;
+        }
+
+        .file-remove:hover {
+            color: #1a1a1a;
+        }
+
+        .portfolio-settings {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .portfolio-settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #1a1a1a;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: white;
+            border: 1px solid #1a1a1a;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            margin-top: 24px;
+        }
+
+        .calculate-btn:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .calculate-btn:active {
+            transform: scale(0.98);
+        }
+
+        .calculate-btn:disabled {
+            background: #ccc;
+            border-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .results-container {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .results-container.show {
+            display: block;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 32px;
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .chart-toggle {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .toggle-btn {
+            padding: 6px 12px;
+            border: 1px solid #d1d1d1;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #666;
+        }
+
+        .toggle-btn:hover {
+            border-color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .toggle-btn.active {
+            background: #1a1a1a;
+            color: white;
+            border-color: #1a1a1a;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .stat-card {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .error-message {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-left: 3px solid #f56565;
+            padding: 16px;
+            border-radius: 6px;
+            color: #c53030;
+            font-size: 14px;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 15px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .trades-table-container {
+            margin-top: 32px;
+            overflow-x: auto;
+        }
+
+        .trades-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .trades-table thead {
+            background: #fafafa;
+        }
+
+        .trades-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .trades-table td {
+            padding: 12px 16px;
+            font-size: 14px;
+            color: #1a1a1a;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .trades-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .trades-table tbody tr:hover {
+            background: #fafafa;
+        }
+
+        .trades-table .positive {
+            color: #1a1a1a;
+        }
+
+        .trades-table .negative {
+            color: #666;
+        }
+
+        .trades-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-top: 16px;
+            padding: 12px;
+        }
+
+        .pagination-btn {
+            background: white;
+            border: 1px solid #d1d1d1;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #1a1a1a;
+            transition: all 0.2s;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #f5f5f5;
+            border-color: #1a1a1a;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            font-size: 14px;
+            color: #666;
+        }
+
+        @media (max-width: 600px) {
+            .nav-menu {
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .strategy-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .portfolio-settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="attribution">
+        made with <span class="heart">❤️</span> by <a href="https://stonkscapital.substack.com/" target="_blank">stonks capital</a>
+    </div>
+    <div class="nav-menu">
+        <a href="index.html">Calculator</a>
+        <a href="monte-carlo.html">Monte Carlo</a>
+        <a href="correlation.html">Correlation</a>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>Portfolio Builder</h1>
+            <p>Combine multiple strategies into a single portfolio with risk management</p>
+        </div>
+
+        <div class="content">
+            <div class="calculator">
+                <div class="form-group">
+                    <label>Strategies (Upload up to 10 Excel files)</label>
+                    <div id="strategies-container"></div>
+                    <div class="drop-zone" id="add-strategy-zone">
+                        <div class="drop-zone-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="drop-zone-text">Drop file here or click to add strategy</div>
+                        <div class="drop-zone-hint">Supports .xlsx, .xls, .csv files</div>
+                        <input type="file" id="add-strategy-input" accept=".xlsx,.xls,.csv" style="display: none;" multiple>
+                    </div>
+                </div>
+
+                <div class="portfolio-settings">
+                    <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 600;">Portfolio Settings</h3>
+                    <div class="portfolio-settings-grid">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="starting-balance">Starting Balance</label>
+                            <input type="number" id="starting-balance" min="1000" step="1000" value="100000" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 15px;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="max-trades-day">Max Trades Per Day</label>
+                            <input type="number" id="max-trades-day" min="1" step="1" value="10" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 15px;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="max-positions">Max Open Positions</label>
+                            <input type="number" id="max-positions" min="1" step="1" value="5" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 15px;">
+                        </div>
+                    </div>
+                </div>
+
+                <button class="calculate-btn" id="calculate-btn" onclick="runPortfolioSimulation()" disabled>Build Portfolio</button>
+
+                <div class="error-message" id="error-message"></div>
+
+                <div class="results-container" id="results-container">
+                    <div class="loading" id="loading">Building portfolio simulation...</div>
+                    <div id="results-content" style="display: none;">
+                        <div class="chart-toggle">
+                            <button class="toggle-btn active" data-chart="equity-compounded" onclick="toggleChart('equity', 'compounded')">Compounded PnL</button>
+                            <button class="toggle-btn" data-chart="equity-log" onclick="toggleChart('equity', 'log')">Log PnL</button>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="equity-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="drawdown-chart"></canvas>
+                        </div>
+                        <div class="section-title">Portfolio Statistics</div>
+                        <div class="stats-grid" id="stats-grid"></div>
+                        <div class="section-title">Executed Trades</div>
+                        <div class="trades-table-container" id="trades-table-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let strategies = [];
+        let equityChart = null;
+        let drawdownChart = null;
+        let currentEquityMode = 'compounded';
+        let lastResult = null; // Store the last result to use when toggling
+        let currentTradesPage = 0;
+        let allTrades = [];
+
+        // Setup add strategy drop zone
+        function setupAddStrategyZone() {
+            const dropZone = document.getElementById('add-strategy-zone');
+            const fileInput = document.getElementById('add-strategy-input');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv'));
+                files.forEach(file => addStrategy(file));
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv'));
+                files.forEach(file => addStrategy(file));
+                e.target.value = '';
+            });
+        }
+
+        function addStrategy(file) {
+            if (strategies.length >= 10) {
+                showError('Maximum 10 strategies allowed');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    const strategy = {
+                        id: Date.now() + Math.random(),
+                        name: file.name.replace(/\.(xlsx|xls)$/i, ''),
+                        file: file,
+                        workbook: workbook,
+                        multiplier: 1.0, // Simple multiplier: if PnL is $100 and multiplier is 2x, scaled PnL = $200
+                        maxTradesPerDay: 5,
+                        maxTradesParallel: 2
+                    };
+
+                    strategies.push(strategy);
+                    renderStrategies();
+                    checkCanCalculate();
+                } catch (error) {
+                    showError(`Error reading file ${file.name}: ${error.message}`);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function removeStrategy(id) {
+            strategies = strategies.filter(s => s.id !== id);
+            renderStrategies();
+            checkCanCalculate();
+        }
+
+        function renderStrategies() {
+            const container = document.getElementById('strategies-container');
+            container.innerHTML = '';
+
+            strategies.forEach(strategy => {
+                const div = document.createElement('div');
+                div.className = 'strategy-item';
+                div.innerHTML = `
+                    <div class="strategy-header">
+                        <div class="strategy-name">${strategy.name}</div>
+                        <button class="strategy-remove" onclick="removeStrategy(${strategy.id})">×</button>
+                    </div>
+                    <div class="strategy-inputs">
+                        <div class="strategy-input-group">
+                            <label>Multiplier</label>
+                            <input type="number" min="0.1" max="100" step="0.1" value="${strategy.multiplier || 1.0}" 
+                                   onchange="updateStrategy(${strategy.id}, 'multiplier', this.value)" 
+                                   onblur="updateStrategy(${strategy.id}, 'multiplier', this.value)"
+                                   oninput="updateStrategy(${strategy.id}, 'multiplier', this.value)"
+                                   placeholder="1.0" title="PnL multiplier: if PnL is $100 and multiplier is 2x, scaled PnL = $200">
+                        </div>
+                        <div class="strategy-input-group">
+                            <label>Max Trades Per Day</label>
+                            <input type="number" min="1" step="1" value="${strategy.maxTradesPerDay}" 
+                                   onchange="updateStrategy(${strategy.id}, 'maxTradesPerDay', this.value)">
+                        </div>
+                        <div class="strategy-input-group">
+                            <label>Max Trades Parallel</label>
+                            <input type="number" min="1" step="1" value="${strategy.maxTradesParallel}" 
+                                   onchange="updateStrategy(${strategy.id}, 'maxTradesParallel', this.value)">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateStrategy(id, field, value) {
+            const strategy = strategies.find(s => s.id === id);
+            if (strategy) {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue) && numValue > 0) {
+                    strategy[field] = numValue;
+                    console.log(`Updated strategy ${strategy.name}: ${field} = ${strategy[field]}`);
+                } else if (field === 'multiplier') {
+                    // Ensure multiplier is always valid
+                    strategy[field] = 1.0;
+                    console.warn(`Invalid multiplier for ${strategy.name}, reset to 1.0`);
+                }
+            }
+        }
+
+        function checkCanCalculate() {
+            const btn = document.getElementById('calculate-btn');
+            btn.disabled = strategies.length === 0;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // Standardized date parsing function
+        function parseExcelDate(value) {
+            // Handle Excel serial numbers (days since 1900-01-01)
+            if (typeof value === 'number') {
+                // Excel epoch is 1900-01-01, but Excel incorrectly treats 1900 as a leap year
+                // JavaScript Date uses 1970-01-01, so we need to adjust
+                const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899 (Excel's epoch - 1 day)
+                const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+                date.setHours(0, 0, 0, 0);
+                return date;
+            }
+            
+            // Handle date strings and Date objects
+            if (value instanceof Date) {
+                const date = new Date(value);
+                date.setHours(0, 0, 0, 0);
+                return date;
+            }
+            
+            if (typeof value === 'string') {
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                    date.setHours(0, 0, 0, 0);
+                    return date;
+                }
+            }
+            
+            return null;
+        }
+
+        // Reuse Excel loading functions from correlation page
+        function findColumnByKeywords(df, keywords) {
+            for (let col of df.columns) {
+                const colStr = String(col).toLowerCase();
+                for (let keyword of keywords) {
+                    if (colStr.includes(keyword.toLowerCase())) {
+                        return col;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function loadStrategyTrades(workbook) {
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+
+            if (data.length === 0) {
+                throw new Error('No data found');
+            }
+
+            const headers = data[0];
+            const rows = data.slice(1);
+            
+            const df = {
+                columns: headers,
+                data: rows.map(row => {
+                    const obj = {};
+                    headers.forEach((header, idx) => {
+                        obj[header] = row[idx];
+                    });
+                    return obj;
+                })
+            };
+
+            let dateCol = findColumnByKeywords(df, ['date', 'exit_date', 'exit date']);
+            if (!dateCol) {
+                const exitTimeCol = findColumnByKeywords(df, ['exit_time', 'exit time', 'exit']);
+                if (exitTimeCol) {
+                    const sample = df.data.slice(0, 10).map(row => row[exitTimeCol]);
+                    const hasDates = sample.some(val => {
+                        if (!val) return false;
+                        const d = parseExcelDate(val);
+                        return d && d.getFullYear() > 1900;
+                    });
+                    if (hasDates) dateCol = exitTimeCol;
+                }
+            }
+
+            if (!dateCol) {
+                throw new Error('No date column found');
+            }
+
+            let pnlCol = findColumnByKeywords(df, ['net_profit', 'net profit', 'pnl', 'profit']);
+            if (!pnlCol) {
+                pnlCol = findColumnByKeywords(df, ['gain', 'loss', 'return']);
+            }
+
+            if (!pnlCol) {
+                throw new Error('No PnL column found');
+            }
+
+            // Try to find entry, exit, stop loss, and shares columns
+            let entryPriceCol = findColumnByKeywords(df, ['entry_price', 'entry price', 'entry', 'buy_price', 'buy price', 'open_price', 'open price']);
+            let exitPriceCol = findColumnByKeywords(df, ['exit_price', 'exit price', 'exit', 'sell_price', 'sell price', 'close_price', 'close price']);
+            let stopLossCol = findColumnByKeywords(df, ['stop_loss', 'stop loss', 'stop', 'sl']);
+            let sharesCol = findColumnByKeywords(df, ['amount', 'shares', 'quantity', 'qty', 'size']);
+
+            const trades = df.data
+                .map(row => ({
+                    date: row[dateCol],
+                    pnl: row[pnlCol],
+                    entryPrice: entryPriceCol ? row[entryPriceCol] : null,
+                    exitPrice: exitPriceCol ? row[exitPriceCol] : null,
+                    stopLoss: stopLossCol ? row[stopLossCol] : null,
+                    shares: sharesCol ? row[sharesCol] : null
+                }))
+                .filter(row => row.date != null && row.pnl != null)
+                .map(row => {
+                    const date = parseExcelDate(row.date);
+                    const pnl = parseFloat(row.pnl);
+                    if (!date || isNaN(pnl)) return null;
+                    
+                    // Calculate return percentage if we have entry and exit prices
+                    let returnPercent = null;
+                    if (row.entryPrice != null && row.exitPrice != null) {
+                        const entryPrice = parseFloat(row.entryPrice);
+                        const exitPrice = parseFloat(row.exitPrice);
+                        if (!isNaN(entryPrice) && !isNaN(exitPrice) && entryPrice > 0) {
+                            returnPercent = (exitPrice - entryPrice) / entryPrice;
+                        }
+                    }
+                    
+                    // Calculate actual risk % if we have entry, stop loss, and shares
+                    let actualRiskPercent = null;
+                    if (row.entryPrice != null && row.stopLoss != null && row.shares != null) {
+                        const entryPrice = parseFloat(row.entryPrice);
+                        const stopLoss = parseFloat(row.stopLoss);
+                        const shares = parseFloat(row.shares);
+                        if (!isNaN(entryPrice) && !isNaN(stopLoss) && !isNaN(shares) && shares > 0) {
+                            // Actual $ risk = |stop_loss - entry_price| * shares
+                            const riskPerShare = Math.abs(stopLoss - entryPrice);
+                            const actualRiskDollars = riskPerShare * shares;
+                            // We'll calculate risk % when we have the backtest balance
+                            actualRiskDollars; // Store for later use
+                        }
+                    }
+                    
+                    return { 
+                        date, 
+                        pnl, 
+                        originalDate: row.date,
+                        returnPercent,
+                        entryPrice: row.entryPrice ? parseFloat(row.entryPrice) : null,
+                        stopLoss: row.stopLoss ? parseFloat(row.stopLoss) : null,
+                        shares: row.shares ? parseFloat(row.shares) : null
+                    };
+                })
+                .filter(row => row != null)
+                .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+            return trades;
+        }
+
+        function runPortfolioSimulation() {
+            if (strategies.length === 0) {
+                showError('Please add at least one strategy');
+                return;
+            }
+
+
+            const resultsContainer = document.getElementById('results-container');
+            const loadingDiv = document.getElementById('loading');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsContainer.classList.add('show');
+            loadingDiv.style.display = 'block';
+            resultsContent.style.display = 'none';
+
+            setTimeout(() => {
+                try {
+                    // Load all strategy trades - explicitly copy multiplier to ensure latest value
+                    const strategyTrades = strategies.map(s => {
+                        const trades = loadStrategyTrades(s.workbook);
+                        return {
+                            id: s.id,
+                            name: s.name,
+                            multiplier: s.multiplier || 1.0, // Explicitly get current multiplier
+                            maxTradesPerDay: s.maxTradesPerDay,
+                            maxTradesParallel: s.maxTradesParallel,
+                            trades: trades
+                        };
+                    });
+                    
+                    // Debug: Log multipliers being used
+                    console.log('Strategy multipliers at simulation start:');
+                    strategyTrades.forEach(st => {
+                        console.log(`  ${st.name}: ${st.multiplier}`);
+                    });
+
+                    // Run portfolio simulation
+                    const result = simulatePortfolio(strategyTrades, {
+                        startingBalance: parseFloat(document.getElementById('starting-balance').value),
+                        maxTradesPerDay: parseInt(document.getElementById('max-trades-day').value),
+                        maxOpenPositions: parseInt(document.getElementById('max-positions').value)
+                    });
+
+                    // Display results
+                    displayResults(result);
+                    
+                    loadingDiv.style.display = 'none';
+                    resultsContent.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                } catch (error) {
+                    loadingDiv.style.display = 'none';
+                    showError(error.message);
+                }
+            }, 100);
+        }
+
+        function simulatePortfolio(strategyTrades, settings) {
+            // Since Excel files contain exit dates and PnL, we treat each trade as closing on its exit date
+            // The PnL is already the final result, we just need to scale it by risk %
+            
+            const equity = [settings.startingBalance];
+            const drawdown = [0];
+            const dates = [];
+            let currentBalance = settings.startingBalance;
+            let peak = settings.startingBalance;
+            const dailyTrades = {};
+            const strategyDailyCounts = {};
+            const executedTrades = []; // Track all executed trades for the table
+
+            // Find the common date range (intersection) across all strategies
+            let commonMinDate = null;
+            let commonMaxDate = null;
+            
+            strategyTrades.forEach(st => {
+                if (!st.trades || st.trades.length === 0) {
+                    console.warn(`Strategy ${st.name} has no trades`);
+                    return;
+                }
+                
+                // Find min and max dates for this strategy
+                const strategyDates = st.trades.map(t => t.date.getTime());
+                const strategyMin = Math.min(...strategyDates);
+                const strategyMax = Math.max(...strategyDates);
+                
+                // Update common range (intersection)
+                if (commonMinDate === null) {
+                    commonMinDate = strategyMin;
+                    commonMaxDate = strategyMax;
+                } else {
+                    // Intersection: max of all min dates, min of all max dates
+                    commonMinDate = Math.max(commonMinDate, strategyMin);
+                    commonMaxDate = Math.min(commonMaxDate, strategyMax);
+                }
+            });
+            
+            if (commonMinDate === null || commonMaxDate === null || commonMinDate > commonMaxDate) {
+                throw new Error('No overlapping date range found across strategies');
+            }
+            
+            // Filter trades to only include those within the common date range
+            const commonMinDateObj = new Date(commonMinDate);
+            const commonMaxDateObj = new Date(commonMaxDate);
+            
+            strategyTrades.forEach(st => {
+                st.trades = st.trades.filter(t => {
+                    const tradeDate = t.date.getTime();
+                    return tradeDate >= commonMinDate && tradeDate <= commonMaxDate;
+                });
+            });
+            
+            console.log(`Common date range: ${commonMinDateObj.toLocaleDateString()} to ${commonMaxDateObj.toLocaleDateString()}`);
+            
+            // Get all unique dates from filtered trades
+            const allDates = new Set();
+            strategyTrades.forEach(st => {
+                st.trades.forEach(t => allDates.add(t.date.getTime()));
+            });
+            
+            if (allDates.size === 0) {
+                throw new Error('No trades found in common date range');
+            }
+            
+            const sortedDates = Array.from(allDates).sort((a, b) => a - b);
+
+            console.log(`Total dates: ${sortedDates.length}`);
+            console.log(`Strategies: ${strategyTrades.length}`);
+            strategyTrades.forEach(st => {
+                console.log(`Strategy ${st.name}: ${st.trades.length} trades`);
+            });
+
+            // Initialize daily counts for all strategies
+            strategyTrades.forEach(st => {
+                strategyDailyCounts[st.id] = {};
+            });
+
+            sortedDates.forEach(dateTime => {
+                const date = new Date(dateTime);
+                dates.push(date);
+                
+                // Initialize daily trade count for this date
+                if (!dailyTrades[dateTime]) {
+                    dailyTrades[dateTime] = 0;
+                }
+
+                // Get all trades that exit on this date from all strategies
+                const tradesToday = [];
+                strategyTrades.forEach(st => {
+                    const dayCount = strategyDailyCounts[st.id][dateTime] || 0;
+                    
+                    // Check if strategy can take more trades today
+                    if (dayCount < st.maxTradesPerDay) {
+                        st.trades
+                            .filter(t => t.date.getTime() === dateTime)
+                            .forEach(trade => {
+                                tradesToday.push({
+                                    ...trade,
+                                    strategyId: st.id,
+                                    strategy: st
+                                });
+                            });
+                    }
+                });
+
+                // Apply portfolio-level constraints and randomly select trades
+                const remainingDailySlots = settings.maxTradesPerDay - dailyTrades[dateTime];
+                const shuffled = [...tradesToday].sort(() => Math.random() - 0.5);
+                const selectedTrades = shuffled.slice(0, Math.min(remainingDailySlots, tradesToday.length));
+
+                // Process selected trades with simple multiplier and compounding
+                // Formula: Scaled PNL = original_PNL * multiplier * (current_balance / starting_balance)
+                // This compounds because currentBalance grows with each trade
+                selectedTrades.forEach(trade => {
+                    // Simple approach: multiply by user's multiplier, then scale by balance ratio for compounding
+                    const balanceRatio = currentBalance / settings.startingBalance;
+                    // Get multiplier directly from the strategy object (ensure we have the latest value)
+                    const multiplier = trade.strategy.multiplier || 1.0;
+                    scaledPnL = trade.pnl * multiplier * balanceRatio;
+                    
+                    // Debug logging for first few trades to verify multiplier
+                    if (executedTrades.length < 3) {
+                        console.log(`Trade ${executedTrades.length + 1}: Strategy=${trade.strategy.name}, Original PnL=${trade.pnl.toFixed(2)}, Multiplier=${multiplier}, BalanceRatio=${balanceRatio.toFixed(4)}, Scaled=${scaledPnL.toFixed(2)}`);
+                    }
+                    
+                    const balanceBefore = currentBalance;
+                    currentBalance += scaledPnL;
+                    
+                    // Prevent balance from going negative
+                    if (currentBalance < 0) {
+                        console.warn(`Balance went negative: ${currentBalance.toFixed(2)}, resetting to 0`);
+                        currentBalance = 0;
+                    }
+                    
+                    if (currentBalance > peak) peak = currentBalance;
+                    
+                    // Track trade for table
+                    executedTrades.push({
+                        entryDate: date, // Since we only have exit dates, use exit date as entry
+                        exitDate: date,
+                        strategy: trade.strategy.name,
+                        originalPnL: trade.pnl,
+                        adjustedPnL: scaledPnL,
+                        balance: currentBalance
+                    });
+                    
+                    if (selectedTrades.length > 0 && dates.length < 10) {
+                        console.log(`Date: ${new Date(dateTime).toLocaleDateString()}, Strategy: ${trade.strategy.name}, Original PnL: ${trade.pnl.toFixed(2)}, Scaled PnL: ${scaledPnL.toFixed(2)}, Balance: ${currentBalance.toFixed(2)}, Peak: ${peak.toFixed(2)}`);
+                    }
+                    
+                    dailyTrades[dateTime]++;
+                    if (!strategyDailyCounts[trade.strategyId][dateTime]) {
+                        strategyDailyCounts[trade.strategyId][dateTime] = 0;
+                    }
+                    strategyDailyCounts[trade.strategyId][dateTime]++;
+                });
+
+                equity.push(currentBalance);
+                const currentDD = peak > 0 ? (peak - currentBalance) / peak : 0;
+                drawdown.push(currentDD);
+            });
+
+            // Calculate CAGR
+            let cagr = 0;
+            if (dates.length > 1) {
+                const firstDate = dates[0];
+                const lastDate = dates[dates.length - 1];
+                const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+                const years = daysDiff / 365.25;
+                
+                if (years > 0 && currentBalance > 0 && settings.startingBalance > 0) {
+                    cagr = (Math.pow(currentBalance / settings.startingBalance, 1 / years) - 1) * 100;
+                }
+            }
+
+            return {
+                dates,
+                equity,
+                drawdown,
+                finalBalance: currentBalance,
+                startingBalance: settings.startingBalance,
+                totalReturn: ((currentBalance - settings.startingBalance) / settings.startingBalance) * 100,
+                maxDrawdown: Math.max(...drawdown) * 100,
+                peak,
+                cagr,
+                executedTrades
+            };
+        }
+
+        function displayResults(result) {
+            // Update stats
+            const statsGrid = document.getElementById('stats-grid');
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Final Balance</div>
+                    <div class="stat-value">$${result.finalBalance.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Return</div>
+                    <div class="stat-value">${result.totalReturn >= 0 ? '+' : ''}${result.totalReturn.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">CAGR</div>
+                    <div class="stat-value">${result.cagr >= 0 ? '+' : ''}${result.cagr.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Max Drawdown</div>
+                    <div class="stat-value">${result.maxDrawdown.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak Balance</div>
+                    <div class="stat-value">$${result.peak.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                </div>
+            `;
+
+            // Store result for chart toggling
+            lastResult = result;
+            
+            // Create equity chart
+            createEquityChart(result, currentEquityMode);
+            
+            // Create drawdown chart
+            createDrawdownChart(result);
+            
+            // Display trades table
+            displayTradesTable(result.executedTrades || []);
+        }
+
+        function displayTradesTable(trades) {
+            const container = document.getElementById('trades-table-container');
+            
+            if (trades.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No trades executed</p>';
+                return;
+            }
+
+            // Store all trades and reset to first page
+            allTrades = trades;
+            currentTradesPage = 0;
+            
+            renderTradesPage();
+        }
+
+        function renderTradesPage() {
+            const container = document.getElementById('trades-table-container');
+            const pageSize = 10;
+            const totalPages = Math.ceil(allTrades.length / pageSize);
+            const startIdx = currentTradesPage * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, allTrades.length);
+            const pageTrades = allTrades.slice(startIdx, endIdx);
+
+            let tableHTML = `
+                <table class="trades-table">
+                    <thead>
+                        <tr>
+                            <th>Entry Date</th>
+                            <th>Exit Date</th>
+                            <th>Strategy</th>
+                            <th>Original PnL</th>
+                            <th>Adjusted PnL</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            pageTrades.forEach(trade => {
+                const entryDate = trade.entryDate instanceof Date ? trade.entryDate.toLocaleDateString() : new Date(trade.entryDate).toLocaleDateString();
+                const exitDate = trade.exitDate instanceof Date ? trade.exitDate.toLocaleDateString() : new Date(trade.exitDate).toLocaleDateString();
+                const originalPnLClass = trade.originalPnL >= 0 ? 'positive' : 'negative';
+                const adjustedPnLClass = trade.adjustedPnL >= 0 ? 'positive' : 'negative';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${entryDate}</td>
+                        <td>${exitDate}</td>
+                        <td>${trade.strategy}</td>
+                        <td class="${originalPnLClass}">$${trade.originalPnL.toFixed(2)}</td>
+                        <td class="${adjustedPnLClass}">$${trade.adjustedPnL.toFixed(2)}</td>
+                        <td>$${trade.balance.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+                <div class="trades-pagination">
+                    <button class="pagination-btn" onclick="previousTradesPage()" ${currentTradesPage === 0 ? 'disabled' : ''}>
+                        ← Previous
+                    </button>
+                    <span class="pagination-info">
+                        Showing ${startIdx + 1}-${endIdx} of ${allTrades.length} trades (Page ${currentTradesPage + 1} of ${totalPages})
+                    </span>
+                    <button class="pagination-btn" onclick="nextTradesPage()" ${currentTradesPage >= totalPages - 1 ? 'disabled' : ''}>
+                        Next →
+                    </button>
+                </div>
+            `;
+
+            container.innerHTML = tableHTML;
+        }
+
+        function previousTradesPage() {
+            if (currentTradesPage > 0) {
+                currentTradesPage--;
+                renderTradesPage();
+            }
+        }
+
+        function nextTradesPage() {
+            const pageSize = 10;
+            const totalPages = Math.ceil(allTrades.length / pageSize);
+            if (currentTradesPage < totalPages - 1) {
+                currentTradesPage++;
+                renderTradesPage();
+            }
+        }
+
+        function toggleChart(type, mode) {
+            if (type === 'equity') {
+                currentEquityMode = mode;
+                document.querySelectorAll('[data-chart^="equity-"]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-chart="equity-${mode}"]`).classList.add('active');
+                
+                // Use stored result data (always use original equity values, not transformed)
+                if (lastResult) {
+                    createEquityChart(lastResult, mode);
+                }
+            }
+        }
+
+        function createEquityChart(result, mode) {
+            const ctx = document.getElementById('equity-chart').getContext('2d');
+            
+            if (equityChart) {
+                equityChart.destroy();
+            }
+
+            let data = result.equity;
+            let label = 'Portfolio Equity';
+            
+            if (mode === 'log') {
+                data = result.equity.map(v => Math.log10(Math.max(v, 1)));
+                label = 'Portfolio Equity (Log Scale)';
+            }
+
+            equityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: result.dates.map(d => d.toLocaleDateString()),
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: '#1a1a1a',
+                        backgroundColor: 'rgba(26, 26, 26, 0.05)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Portfolio Equity Curve',
+                            font: {
+                                size: 14,
+                                weight: 600,
+                                family: 'Inter'
+                            },
+                            color: '#1a1a1a'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: { size: 12, weight: 500, family: 'Inter' },
+                                color: '#666'
+                            },
+                            grid: { color: '#f0f0f0' },
+                            ticks: { color: '#666', font: { family: 'Inter' }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: mode === 'log' ? 'Log Equity' : 'Balance ($)',
+                                font: { size: 12, weight: 500, family: 'Inter' },
+                                color: '#666'
+                            },
+                            grid: { color: '#f0f0f0' },
+                            ticks: { 
+                                color: '#666', 
+                                font: { family: 'Inter' },
+                                callback: function(value) {
+                                    if (mode === 'log') return value.toFixed(2);
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createDrawdownChart(result) {
+            const ctx = document.getElementById('drawdown-chart').getContext('2d');
+            
+            if (drawdownChart) {
+                drawdownChart.destroy();
+            }
+
+            drawdownChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: result.dates.map(d => d.toLocaleDateString()),
+                    datasets: [{
+                        label: 'Drawdown',
+                        data: result.drawdown.map(d => d * 100),
+                        borderColor: '#666',
+                        backgroundColor: 'rgba(102, 102, 102, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Portfolio Drawdown',
+                            font: {
+                                size: 14,
+                                weight: 600,
+                                family: 'Inter'
+                            },
+                            color: '#1a1a1a'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: { size: 12, weight: 500, family: 'Inter' },
+                                color: '#666'
+                            },
+                            grid: { color: '#f0f0f0' },
+                            ticks: { color: '#666', font: { family: 'Inter' }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Drawdown (%)',
+                                font: { size: 12, weight: 500, family: 'Inter' },
+                                color: '#666'
+                            },
+                            grid: { color: '#f0f0f0' },
+                            ticks: { 
+                                color: '#666', 
+                                font: { family: 'Inter' },
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize
+        setupAddStrategyZone();
+        checkCanCalculate();
+        
+        // Handle Enter key to trigger portfolio build
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                const btn = document.getElementById('calculate-btn');
+                if (btn && !btn.disabled) {
+                    e.preventDefault();
+                    runPortfolioSimulation();
+                }
+            }
+        });
+    </script>
+    <!-- Vercel Analytics -->
+    <script>
+        (function() {
+            if (typeof window === 'undefined') return;
+            var script = document.createElement('script');
+            script.src = '/_vercel/insights/script.js';
+            script.defer = true;
+            script.onerror = function() {
+                var fallback = document.createElement('script');
+                fallback.src = 'https://va.vercel-scripts.com/v1/script.js';
+                fallback.defer = true;
+                document.head.appendChild(fallback);
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
+

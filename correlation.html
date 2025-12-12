@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Correlation Analysis - Backtest Sample Size Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fafafa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a1a1a;
+            position: relative;
+        }
+
+        .attribution {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: #999;
+            z-index: 10;
+        }
+
+        .attribution a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .attribution a:hover {
+            opacity: 0.7;
+            text-decoration: underline;
+        }
+
+        .attribution .heart {
+            display: inline-block;
+            font-style: normal;
+        }
+
+        .nav-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-menu a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: white;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .nav-menu a:hover {
+            background: #fafafa;
+            border-color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fafafa;
+        }
+
+        .header {
+            background: #fafafa;
+            color: #1a1a1a;
+            padding: 48px 32px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.4;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .content {
+            padding: 0px 32px 40px 32px;
+            background: #fafafa;
+        }
+
+        .calculator {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+            font-size: 14px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #d1d1d1;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #fafafa;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .drop-zone:hover {
+            border-color: #1a1a1a;
+            background: #f5f5f5;
+        }
+
+        .drop-zone.dragover {
+            border-color: #1a1a1a;
+            background: #f0f0f0;
+        }
+
+        .drop-zone.has-file {
+            border-color: #1a1a1a;
+            background: white;
+            padding: 20px;
+        }
+
+        .drop-zone-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px auto;
+            opacity: 0.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .drop-zone-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-zone-text {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-hint {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 6px;
+            margin-top: 12px;
+        }
+
+        .file-name {
+            font-size: 14px;
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+
+        .file-remove {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+            transition: color 0.2s;
+        }
+
+        .file-remove:hover {
+            color: #1a1a1a;
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: white;
+            border: 1px solid #1a1a1a;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            margin-top: 24px;
+        }
+
+        .calculate-btn:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .calculate-btn:active {
+            transform: scale(0.98);
+        }
+
+        .calculate-btn:disabled {
+            background: #ccc;
+            border-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .results-container {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 32px;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .results-container.show {
+            display: block;
+        }
+
+        .results-title {
+            font-size: 22px;
+            margin-bottom: 24px;
+            color: #1a1a1a;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 12px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .metric-card {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .metric-interpretation {
+            font-size: 13px;
+            color: #1a1a1a;
+            margin-top: 8px;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .metric-description {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        .help-icon-container {
+            display: inline-block;
+            position: relative;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid #d1d1d1;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.2s;
+        }
+
+        .help-icon:hover {
+            border-color: #1a1a1a;
+            color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 16px;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: normal;
+            width: 300px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            font-weight: 400;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1a1a1a;
+        }
+
+        .help-icon-container:hover .tooltip {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .tooltip:hover {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        /* Show tooltip when clicked (for mobile) */
+        .help-icon-container.active .tooltip {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        .metric-label {
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 18px;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-left: 3px solid #f56565;
+            padding: 16px;
+            border-radius: 6px;
+            color: #c53030;
+            font-size: 14px;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 15px;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 0;
+            }
+
+            .header {
+                padding: 60px 20px 40px 20px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+                margin-bottom: 16px;
+            }
+
+            .content {
+                padding: 0px 0px 40px 0px;
+            }
+
+            .calculator {
+                border: none;
+                border-radius: 0;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+
+            .drop-zone {
+                padding: 30px 20px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-menu {
+                flex-direction: column;
+                gap: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="attribution">
+        made with <span class="heart">❤️</span> by <a href="https://stonkscapital.substack.com/" target="_blank">stonks capital</a>
+    </div>
+    <div class="nav-menu">
+        <a href="index.html">Calculator</a>
+        <a href="monte-carlo.html">Monte Carlo</a>
+        <a href="portfolio-builder.html">Portfolio Builder</a>
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>Strategy Correlation Analysis</h1>
+            <p>Analyze correlation metrics between two trading strategies</p>
+        </div>
+
+        <div class="content">
+            <div class="calculator">
+                <div class="form-group">
+                    <label for="file1">Strategy A Excel File</label>
+                    <div class="drop-zone" id="drop-zone-1" data-file-index="1">
+                        <div class="drop-zone-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="drop-zone-text">Drop file here or click to browse</div>
+                        <div class="drop-zone-hint">Supports .xlsx, .xls, .csv files</div>
+                        <input type="file" id="file1" accept=".xlsx,.xls,.csv" style="display: none;">
+                    </div>
+                    <div class="help-text">
+                        The tool will automatically detect date and PnL columns. It looks for columns containing "date", "exit_date", "net_profit", "pnl", or "profit".
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="file2">Strategy B Excel File</label>
+                    <div class="drop-zone" id="drop-zone-2" data-file-index="2">
+                        <div class="drop-zone-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="drop-zone-text">Drop file here or click to browse</div>
+                        <div class="drop-zone-hint">Supports .xlsx, .xls, .csv files</div>
+                        <input type="file" id="file2" accept=".xlsx,.xls,.csv" style="display: none;">
+                    </div>
+                    <div class="help-text">
+                        The tool will automatically detect date and PnL columns. It looks for columns containing "date", "exit_date", "net_profit", "pnl", or "profit".
+                    </div>
+                </div>
+
+                <button class="calculate-btn" id="calculate-btn" onclick="calculateCorrelations()" disabled>Calculate Correlations</button>
+
+                <div class="error-message" id="error-message"></div>
+
+                <div class="results-container" id="results-container">
+                    <div class="loading" id="loading">Processing files and calculating correlations...</div>
+                    <div id="results-content" style="display: none;">
+                        <div id="results-metrics"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fileData1 = null;
+        let fileData2 = null;
+
+        // Setup drop zones
+        function setupDropZone(zoneId, fileInputId, fileIndex) {
+            const dropZone = document.getElementById(zoneId);
+            const fileInput = document.getElementById(fileInputId);
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) {
+                    handleFile(file, fileIndex);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleFile(file, fileIndex);
+                }
+            });
+        }
+
+        function handleFile(file, fileIndex) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    if (fileIndex === 1) {
+                        fileData1 = { file, workbook };
+                        updateDropZone('drop-zone-1', file.name);
+                    } else {
+                        fileData2 = { file, workbook };
+                        updateDropZone('drop-zone-2', file.name);
+                    }
+
+                    checkCanCalculate();
+                } catch (error) {
+                    showError(`Error reading file: ${error.message}`);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updateDropZone(zoneId, fileName) {
+            const dropZone = document.getElementById(zoneId);
+            dropZone.classList.add('has-file');
+            dropZone.innerHTML = `
+                <div class="file-info">
+                    <span class="file-name">${fileName}</span>
+                    <button class="file-remove" onclick="event.stopPropagation(); removeFile('${zoneId}', ${zoneId === 'drop-zone-1' ? 1 : 2})">×</button>
+                </div>
+            `;
+        }
+
+        function removeFile(zoneId, fileIndex) {
+            const fileInputId = fileIndex === 1 ? 'file1' : 'file2';
+            
+            if (fileIndex === 1) {
+                fileData1 = null;
+            } else {
+                fileData2 = null;
+            }
+            
+            const dropZone = document.getElementById(zoneId);
+            if (dropZone) {
+                dropZone.classList.remove('has-file');
+                
+                dropZone.innerHTML = `
+                    <div class="drop-zone-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <div class="drop-zone-text">Drop file here or click to browse</div>
+                    <div class="drop-zone-hint">Supports .xlsx, .xls, .csv files</div>
+                    <input type="file" id="${fileInputId}" accept=".xlsx,.xls,.csv" style="display: none;">
+                `;
+                
+                // Re-attach the file input change listener (drop zone click listener persists on the element)
+                const newFileInput = document.getElementById(fileInputId);
+                if (newFileInput) {
+                    newFileInput.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            handleFile(file, fileIndex);
+                        }
+                    });
+                }
+            }
+            
+            checkCanCalculate();
+        }
+
+        function checkCanCalculate() {
+            const btn = document.getElementById('calculate-btn');
+            btn.disabled = !(fileData1 && fileData2);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        function parseExcelDate(value) {
+            // Handle Excel serial numbers (days since 1900-01-01)
+            if (typeof value === 'number') {
+                // Excel epoch is 1900-01-01, but Excel incorrectly treats 1900 as a leap year
+                // JavaScript Date uses 1970-01-01, so we need to adjust
+                const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899 (Excel's epoch - 1 day)
+                const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+                date.setHours(0, 0, 0, 0);
+                return date;
+            }
+            
+            // Handle date strings and Date objects
+            if (value instanceof Date) {
+                const date = new Date(value);
+                date.setHours(0, 0, 0, 0);
+                return date;
+            }
+            
+            if (typeof value === 'string') {
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                    date.setHours(0, 0, 0, 0);
+                    return date;
+                }
+            }
+            
+            return null;
+        }
+
+        function findColumnByKeywords(df, keywords) {
+            for (let col of df.columns) {
+                const colStr = String(col).toLowerCase();
+                for (let keyword of keywords) {
+                    if (colStr.includes(keyword.toLowerCase())) {
+                        return col;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function loadStrategyData(workbook, strategyName) {
+            // Get first sheet
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
+
+            if (data.length === 0) {
+                throw new Error(`No data found in ${strategyName} file`);
+            }
+
+            // Convert to DataFrame-like structure
+            const headers = data[0];
+            const rows = data.slice(1);
+            
+            const df = {
+                columns: headers,
+                data: rows.map(row => {
+                    const obj = {};
+                    headers.forEach((header, idx) => {
+                        obj[header] = row[idx];
+                    });
+                    return obj;
+                })
+            };
+
+            // Find date column
+            let dateCol = findColumnByKeywords(df, ['date']);
+            if (!dateCol) {
+                dateCol = findColumnByKeywords(df, ['exit_date', 'exit date']);
+            }
+            if (!dateCol) {
+                const exitTimeCol = findColumnByKeywords(df, ['exit_time', 'exit time', 'exit']);
+                if (exitTimeCol) {
+                    // Check if it's actually a date
+                    const sample = df.data.slice(0, 10).map(row => row[exitTimeCol]);
+                    const hasDates = sample.some(val => {
+                        if (!val) return false;
+                        const d = parseExcelDate(val);
+                        return d && d.getFullYear() > 1900;
+                    });
+                    if (hasDates) {
+                        dateCol = exitTimeCol;
+                    }
+                }
+            }
+
+            if (!dateCol) {
+                throw new Error(`No date column found. Available columns: ${df.columns.slice(0, 10).join(', ')}`);
+            }
+
+            // Find PnL column
+            let pnlCol = findColumnByKeywords(df, ['net_profit', 'net profit']);
+            if (!pnlCol) {
+                pnlCol = findColumnByKeywords(df, ['pnl']);
+            }
+            if (!pnlCol) {
+                const profitCol = findColumnByKeywords(df, ['profit']);
+                if (profitCol && !String(profitCol).toLowerCase().includes('stop_loss') && !String(profitCol).toLowerCase().includes('stop loss')) {
+                    pnlCol = profitCol;
+                }
+            }
+            if (!pnlCol) {
+                pnlCol = findColumnByKeywords(df, ['gain', 'loss', 'return']);
+            }
+
+            if (!pnlCol) {
+                throw new Error(`No PnL column found. Available columns: ${df.columns.slice(0, 10).join(', ')}`);
+            }
+
+            // Extract and clean data
+            const extracted = df.data
+                .map(row => ({
+                    date: row[dateCol],
+                    pnl: row[pnlCol]
+                }))
+                .filter(row => row.date != null && row.pnl != null)
+                .map(row => {
+                    const date = parseExcelDate(row.date);
+                    const pnl = parseFloat(row.pnl);
+                    if (!date || isNaN(pnl)) {
+                        return null;
+                    }
+                    return { date, pnl };
+                })
+                .filter(row => row != null);
+
+            if (extracted.length === 0) {
+                throw new Error(`No valid data found after cleaning`);
+            }
+
+            // Aggregate by date (sum PnL for same date)
+            const daily = {};
+            extracted.forEach(row => {
+                const dateKey = row.date.getTime();
+                if (!daily[dateKey]) {
+                    daily[dateKey] = { date: row.date, pnl: 0 };
+                }
+                daily[dateKey].pnl += row.pnl;
+            });
+
+            return Object.values(daily).sort((a, b) => a.date - b.date);
+        }
+
+        function isBusinessDay(date) {
+            const day = date.getDay();
+            return day !== 0 && day !== 6; // Not Sunday (0) or Saturday (6)
+        }
+
+        function getBusinessDaysRange(startDate, endDate) {
+            const dates = [];
+            const current = new Date(startDate);
+            current.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(0, 0, 0, 0);
+
+            while (current <= end) {
+                if (isBusinessDay(current)) {
+                    dates.push(new Date(current));
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function alignSeries(data1, data2) {
+            // Find overlapping date range (intersection - matching Python behavior)
+            const dates1 = data1.map(d => d.date.getTime());
+            const dates2 = data2.map(d => d.date.getTime());
+            
+            const minDate1 = Math.min(...dates1);
+            const maxDate1 = Math.max(...dates1);
+            const minDate2 = Math.min(...dates2);
+            const maxDate2 = Math.max(...dates2);
+            
+            // Overlapping period: intersection of date ranges
+            const minDate = new Date(Math.max(minDate1, minDate2));
+            const maxDate = new Date(Math.min(maxDate1, maxDate2));
+
+            // Create complete business day range for overlapping period
+            // This ensures we have a row for every trading day, even if no trades occurred
+            const allBusinessDays = getBusinessDaysRange(minDate, maxDate);
+
+            // Create maps for quick lookup
+            const data1Map = new Map();
+            data1.forEach(d => {
+                const key = d.date.getTime();
+                data1Map.set(key, d.pnl);
+            });
+
+            const data2Map = new Map();
+            data2.forEach(d => {
+                const key = d.date.getTime();
+                data2Map.set(key, d.pnl);
+            });
+
+            // Create aligned series with all business days, filling missing dates with 0
+            const aligned = allBusinessDays.map(date => {
+                const key = date.getTime();
+                return {
+                    date: date,
+                    a: data1Map.get(key) || 0,  // 0 PnL if no trade on this date
+                    b: data2Map.get(key) || 0   // 0 PnL if no trade on this date
+                };
+            });
+
+            return aligned.sort((a, b) => a.date - b.date);
+        }
+
+        function pearsonCorrelation(x, y) {
+            const n = x.length;
+            const sumX = x.reduce((a, b) => a + b, 0);
+            const sumY = y.reduce((a, b) => a + b, 0);
+            const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+            const sumX2 = x.reduce((a, b) => a + b * b, 0);
+            const sumY2 = y.reduce((a, b) => a + b * b, 0);
+
+            const numerator = n * sumXY - sumX * sumY;
+            const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+            
+            if (denominator === 0) return 0;
+            return numerator / denominator;
+        }
+
+        function spearmanCorrelation(x, y) {
+            // Create ranked arrays
+            const rank = (arr) => {
+                const sorted = [...arr].map((val, idx) => ({ val, idx })).sort((a, b) => a.val - b.val);
+                const ranks = new Array(arr.length);
+                sorted.forEach((item, rankIdx) => {
+                    ranks[item.idx] = rankIdx + 1;
+                });
+                return ranks;
+            };
+
+            const rx = rank(x);
+            const ry = rank(y);
+            return pearsonCorrelation(rx, ry);
+        }
+
+        function kendallTau(x, y) {
+            let concordant = 0;
+            let discordant = 0;
+            const n = x.length;
+
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    const xDiff = x[i] - x[j];
+                    const yDiff = y[i] - y[j];
+                    if (xDiff * yDiff > 0) concordant++;
+                    else if (xDiff * yDiff < 0) discordant++;
+                }
+            }
+
+            const total = concordant + discordant;
+            if (total === 0) return 0;
+            return (concordant - discordant) / total;
+        }
+
+        function quantile(arr, q) {
+            const sorted = [...arr].sort((a, b) => a - b);
+            const index = (sorted.length - 1) * q;
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            const weight = index - lower;
+            return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+        }
+
+        function empiricalTailDependence(x, y, q, tail) {
+            if (tail === 'lower') {
+                const tx = quantile(x, q);
+                const ty = quantile(y, q);
+                const mask = x.map(val => val <= tx);
+                const count = mask.filter(m => m).length;
+                if (count === 0) return NaN;
+                const yInTail = y.filter((val, i) => mask[i] && val <= ty).length;
+                return yInTail / count;
+            } else {
+                const tx = quantile(x, 1 - q);
+                const ty = quantile(y, 1 - q);
+                const mask = x.map(val => val >= tx);
+                const count = mask.filter(m => m).length;
+                if (count === 0) return NaN;
+                const yInTail = y.filter((val, i) => mask[i] && val >= ty).length;
+                return yInTail / count;
+            }
+        }
+
+        function conditionalTailCorrelation(x, y, q, tail, requireBoth) {
+            const tx = tail === 'lower' ? quantile(x, q) : quantile(x, 1 - q);
+            const ty = tail === 'lower' ? quantile(y, q) : quantile(y, 1 - q);
+            let mask;
+            if (requireBoth) {
+                mask = tail === 'lower' 
+                    ? x.map((xi, i) => xi <= tx && y[i] <= ty)
+                    : x.map((xi, i) => xi >= tx && y[i] >= ty);
+            } else {
+                mask = tail === 'lower'
+                    ? x.map((xi, i) => xi <= tx || y[i] <= ty)
+                    : x.map((xi, i) => xi >= tx || y[i] >= ty);
+            }
+
+            const filteredX = x.filter((_, i) => mask[i]);
+            const filteredY = y.filter((_, i) => mask[i]);
+
+            if (filteredX.length < 3) {
+                return { n: filteredX.length, corr: NaN };
+            }
+
+            const corr = pearsonCorrelation(filteredX, filteredY);
+            return { n: filteredX.length, corr };
+        }
+
+        function exceedanceCorrelation(x, y, q, tail) {
+            // Rank-based approach
+            const rank = (arr) => {
+                const sorted = [...arr].map((val, idx) => ({ val, idx })).sort((a, b) => a.val - b.val);
+                const ranks = new Array(arr.length);
+                sorted.forEach((item, rankIdx) => {
+                    ranks[item.idx] = (rankIdx + 1) / (arr.length + 1);
+                });
+                return ranks;
+            };
+
+            const rx = rank(x);
+            const ry = rank(y);
+
+            let mask;
+            if (tail === 'lower') {
+                mask = rx.map((rxi, i) => rxi <= q && ry[i] <= q);
+            } else {
+                mask = rx.map((rxi, i) => rxi >= 1 - q && ry[i] >= 1 - q);
+            }
+
+            const filteredX = rx.filter((_, i) => mask[i]);
+            const filteredY = ry.filter((_, i) => mask[i]);
+
+            if (filteredX.length < 3) {
+                return { n: filteredX.length, corr: NaN };
+            }
+
+            const corr = pearsonCorrelation(filteredX, filteredY);
+            return { n: filteredX.length, corr };
+        }
+
+        function empiricalCoVaR(x, y, q, tail) {
+            if (tail === 'lower') {
+                const vx = quantile(x, q);
+                const subset = y.filter((yi, i) => x[i] <= vx);
+                if (subset.length === 0) return NaN;
+                return quantile(subset, q);
+            } else {
+                const vx = quantile(x, 1 - q);
+                const subset = y.filter((yi, i) => x[i] >= vx);
+                if (subset.length === 0) return NaN;
+                return quantile(subset, 1 - q);
+            }
+        }
+
+        function calculateCorrelations() {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+
+            if (!fileData1 || !fileData2) {
+                showError('Please upload both Excel files');
+                return;
+            }
+
+            const resultsContainer = document.getElementById('results-container');
+            const loadingDiv = document.getElementById('loading');
+            const resultsContent = document.getElementById('results-content');
+            
+            resultsContainer.classList.add('show');
+            loadingDiv.style.display = 'block';
+            resultsContent.style.display = 'none';
+
+            try {
+                // Load data from both files
+                const data1 = loadStrategyData(fileData1.workbook, 'Strategy A');
+                const data2 = loadStrategyData(fileData2.workbook, 'Strategy B');
+
+                // Align series
+                const aligned = alignSeries(data1, data2);
+                const x = aligned.map(d => d.a);
+                const y = aligned.map(d => d.b);
+
+                if (x.length < 3) {
+                    throw new Error('Not enough overlapping data points (need at least 3)');
+                }
+
+                // Calculate all metrics
+                const q = 0.05;
+                const pearson = pearsonCorrelation(x, y);
+                const spearman = spearmanCorrelation(x, y);
+                const kendall = kendallTau(x, y);
+                const empLambdaLower = empiricalTailDependence(x, y, q, 'lower');
+                const empLambdaUpper = empiricalTailDependence(x, y, q, 'upper');
+
+                // Display results
+                displayResults({
+                    pearson,
+                    spearman,
+                    kendall,
+                    empLambdaLower,
+                    empLambdaUpper,
+                    q,
+                    n: x.length
+                });
+
+                loadingDiv.style.display = 'none';
+                resultsContent.style.display = 'block';
+                
+                // Auto-scroll to results after a short delay to ensure DOM is updated
+                setTimeout(() => {
+                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                showError(error.message);
+            }
+        }
+
+        function interpretCorrelation(val) {
+            if (isNaN(val) || val === null || val === undefined) return 'N/A';
+            const absVal = Math.abs(val);
+            const sign = val < 0 ? 'Negative' : 'Positive';
+            let strength;
+            if (absVal >= 0.7) strength = 'Very High';
+            else if (absVal >= 0.5) strength = 'High';
+            else if (absVal >= 0.3) strength = 'Medium';
+            else if (absVal >= 0.1) strength = 'Low';
+            else strength = 'Very Low';
+            
+            return `${strength} ${sign} Correlation`;
+        }
+
+        function interpretTailDependence(val) {
+            if (isNaN(val) || val === null || val === undefined) return 'N/A';
+            if (val >= 0.7) return 'Very High Dependence';
+            if (val >= 0.5) return 'High Dependence';
+            if (val >= 0.3) return 'Medium Dependence';
+            if (val >= 0.1) return 'Low Dependence';
+            return 'Very Low Dependence';
+        }
+
+        function calculateCombinedRank(results) {
+            // For a good combination (diversification), we want:
+            // 1. Low correlation (strategies don't move together = better diversification)
+            // 2. Low tail dependence (they don't crash together = better risk management)
+            
+            // Normalize each metric to 0-1 scale where 1 = best, 0 = worst
+            
+            // Correlation metrics: Lower absolute value = better (0 is perfect, 1 is worst)
+            // We want strategies that are independent, not highly correlated
+            // Apply steeper penalty for correlations > 0.5
+            function scoreCorrelation(corr) {
+                const absCorr = Math.abs(corr || 0);
+                if (absCorr <= 0.5) {
+                    // Linear penalty for correlations <= 0.5
+                    return 1 - absCorr;
+                } else {
+                    // Quadratic penalty for correlations > 0.5 (steeper drop)
+                    // At 0.5: score = 0.5
+                    // At 1.0: score = 0
+                    // Formula: score = 0.5 * (1 - ((absCorr - 0.5) / 0.5)^2)
+                    const excess = (absCorr - 0.5) / 0.5; // 0 to 1
+                    return 0.5 * (1 - excess * excess);
+                }
+            }
+            
+            const pearsonScore = scoreCorrelation(results.pearson);
+            const spearmanScore = scoreCorrelation(results.spearman);
+            const kendallScore = scoreCorrelation(results.kendall);
+            
+            // Tail Dependence: Lower is better (0 = perfect, 1 = worst)
+            // Lower tail dependence is more critical than upper (crashes matter more)
+            const lowerTailScore = 1 - (results.empLambdaLower || 0);
+            const upperTailScore = 1 - (results.empLambdaUpper || 0);
+            
+            // Weighted combination (weights sum to 1.0):
+            // - Lower Tail Dependence: 40% (most critical - don't want crashes together)
+            // - Spearman: 25% (best overall correlation measure)
+            // - Pearson: 15% (linear relationship)
+            // - Kendall: 10% (pairwise agreement)
+            // - Upper Tail Dependence: 10% (less critical than lower tail)
+            
+            const combinedScore = 
+                (lowerTailScore * 0.40) +
+                (spearmanScore * 0.25) +
+                (pearsonScore * 0.15) +
+                (kendallScore * 0.10) +
+                (upperTailScore * 0.10);
+            
+            // Scale from 0-1 to 1-10 and round
+            const rank = Math.round(combinedScore * 9) + 1;
+            
+            return {
+                rank: rank,
+                score: combinedScore,
+                breakdown: {
+                    pearson: pearsonScore,
+                    spearman: spearmanScore,
+                    kendall: kendallScore,
+                    lowerTail: lowerTailScore,
+                    upperTail: upperTailScore
+                }
+            };
+        }
+
+        function getRankLabel(rank) {
+            if (rank >= 9) return 'Excellent Combination';
+            if (rank >= 7) return 'Very Good Combination';
+            if (rank >= 5) return 'Good Combination';
+            if (rank >= 3) return 'Fair Combination';
+            return 'Poor Combination';
+        }
+
+        function displayResults(results) {
+            const metricsDiv = document.getElementById('results-metrics');
+            
+            const formatValue = (val) => {
+                if (isNaN(val) || val === null || val === undefined) return 'N/A';
+                return val.toFixed(4);
+            };
+
+            const formatValuePercent = (val) => {
+                if (isNaN(val) || val === null || val === undefined) return 'N/A';
+                return (val * 100).toFixed(2) + '%';
+            };
+
+            // Calculate combined rank
+            const ranking = calculateCombinedRank(results);
+
+            metricsDiv.innerHTML = `
+                <div class="section-title">Overall Combination Score</div>
+                <div class="metrics-grid" style="grid-template-columns: 1fr;">
+                    <div class="metric-card" style="background: ${ranking.rank >= 7 ? '#f0f9ff' : ranking.rank >= 5 ? '#fefce8' : '#fef2f2'}; border: 2px solid ${ranking.rank >= 7 ? '#1a1a1a' : ranking.rank >= 5 ? '#666' : '#999'}; text-align: center;">
+                        <div class="metric-value" style="font-size: 48px; text-align: center;">${ranking.rank}/10</div>
+                        <div class="metric-interpretation" style="font-size: 16px; margin-top: 12px; text-align: center;">${getRankLabel(ranking.rank)}</div>
+                        <div style="margin-top: 12px; text-align: center;">
+                            <span class="help-icon-container see-why-container" style="display: inline-block;">
+                                <span class="help-icon see-why-trigger" style="width: auto; height: auto; border: none; padding: 0; font-size: 13px; color: #666; text-decoration: underline; cursor: pointer;">
+                                    see why
+                                    <span class="tooltip" style="width: 320px; text-align: left; bottom: calc(100% + 12px);">
+                                        <strong>How it's calculated:</strong><br><br>
+                                        • Lower Tail Dependence: 40% weight (most critical - don't want crashes together)<br>
+                                        • Spearman Correlation: 25% weight (best overall correlation measure)<br>
+                                        • Pearson Correlation: 15% weight (linear relationship)<br>
+                                        • Kendall's Tau: 10% weight (pairwise agreement)<br>
+                                        • Upper Tail Dependence: 10% weight (less critical than lower tail)<br><br>
+                                        <strong>Scoring:</strong> Lower correlation and lower tail dependence = higher rank (better diversification)
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-title">Regular Correlations</div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            Pearson Correlation
+                            <span class="help-icon-container">
+                                <span class="help-icon">?
+                                    <span class="tooltip">
+                                        <strong>What it measures:</strong> How closely two strategies move together in a straight-line relationship.<br><br>
+                                        <strong>Example:</strong> If Strategy A makes $100, Strategy B makes $50. If A makes $200, B makes $100. This is a perfect linear relationship (correlation = 1.0).<br><br>
+                                        <strong>Use when:</strong> You care about proportional relationships - if one strategy doubles, does the other double too?
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="metric-value">${formatValue(results.pearson)}</div>
+                        <div class="metric-interpretation">${interpretCorrelation(results.pearson)}</div>
+                        <div class="metric-description">Linear correlation coefficient (-1 to 1)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            Spearman Correlation
+                            <span class="help-icon-container">
+                                <span class="help-icon">?
+                                    <span class="tooltip">
+                                        <strong>What it measures:</strong> Whether two strategies move in the same direction, regardless of how much.<br><br>
+                                        <strong>Example:</strong> Strategy A: +$500, +$200, -$100. Strategy B: +$50, +$20, -$10. They always move together (both up or both down), so correlation is high even though amounts differ.<br><br>
+                                        <strong>Use when:</strong> You only care if they move in the same direction, not the exact dollar amounts.
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="metric-value">${formatValue(results.spearman)}</div>
+                        <div class="metric-interpretation">${interpretCorrelation(results.spearman)}</div>
+                        <div class="metric-description">Rank-based correlation, robust to outliers</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            Kendall's Tau
+                            <span class="help-icon-container">
+                                <span class="help-icon">?
+                                    <span class="tooltip">
+                                        <strong>What it measures:</strong> How often pairs of days move together in the same direction.<br><br>
+                                        <strong>Example:</strong> Compare Day 1 vs Day 2: both up? Compare Day 1 vs Day 3: both down? Count how many pairs agree vs disagree.<br><br>
+                                        <strong>Use when:</strong> Similar to Spearman - you care about direction. More robust to ties (days with same PnL).
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="metric-value">${formatValue(results.kendall)}</div>
+                        <div class="metric-interpretation">${interpretCorrelation(results.kendall)}</div>
+                        <div class="metric-description">Concordance-based correlation measure</div>
+                    </div>
+                </div>
+
+                <div class="section-title">Tail Dependence</div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            Lower Tail Dependence (λ_L)
+                            <span class="help-icon-container">
+                                <span class="help-icon">?
+                                    <span class="tooltip">
+                                        <strong>What it measures:</strong> When Strategy A has a terrible day (worst 5%), what's the chance Strategy B also has a terrible day?<br><br>
+                                        <strong>Example:</strong> If λ_L = 0.7 (70%), it means: 70% of the time when Strategy A is having one of its worst days, Strategy B is also having one of its worst days.<br><br>
+                                        <strong>Use when:</strong> You want to know if strategies crash together during bad times.
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="metric-value">${formatValuePercent(results.empLambdaLower)}</div>
+                        <div class="metric-interpretation">${interpretTailDependence(results.empLambdaLower)}</div>
+                        <div class="metric-description">P(Y ≤ q | X ≤ q) for q = ${(results.q * 100).toFixed(0)}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            Upper Tail Dependence (λ_U)
+                            <span class="help-icon-container">
+                                <span class="help-icon">?
+                                    <span class="tooltip">
+                                        <strong>What it measures:</strong> When Strategy A has an amazing day (best 5%), what's the chance Strategy B also has an amazing day?<br><br>
+                                        <strong>Example:</strong> If λ_U = 0.5 (50%), it means: 50% of the time when Strategy A is having one of its best days, Strategy B is also having one of its best days.<br><br>
+                                        <strong>Use when:</strong> You want to know if strategies win big together during good times.
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="metric-value">${formatValuePercent(results.empLambdaUpper)}</div>
+                        <div class="metric-interpretation">${interpretTailDependence(results.empLambdaUpper)}</div>
+                        <div class="metric-description">P(Y ≥ q | X ≥ q) for q = ${(results.q * 100).toFixed(0)}%</div>
+                    </div>
+                </div>
+
+                <div class="section-title">Data Summary</div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Observations</div>
+                        <div class="metric-value">${results.n}</div>
+                        <div class="metric-description">Number of aligned data points</div>
+                    </div>
+                </div>
+            `;
+            
+            // Setup click handler for "see why" tooltip (for mobile)
+            const seeWhyContainer = metricsDiv.querySelector('.see-why-container');
+            if (seeWhyContainer) {
+                const seeWhyTrigger = seeWhyContainer.querySelector('.see-why-trigger');
+                if (seeWhyTrigger) {
+                    seeWhyTrigger.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        seeWhyContainer.classList.toggle('active');
+                    });
+                }
+            }
+            
+            // Close tooltip when clicking outside
+            document.addEventListener('click', (e) => {
+                const seeWhyContainers = document.querySelectorAll('.see-why-container');
+                seeWhyContainers.forEach(container => {
+                    if (!container.contains(e.target)) {
+                        container.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+        // Initialize drop zones
+        setupDropZone('drop-zone-1', 'file1', 1);
+        setupDropZone('drop-zone-2', 'file2', 2);
+        checkCanCalculate();
+        
+        // Handle Enter key to trigger calculation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                const btn = document.getElementById('calculate-btn');
+                if (btn && !btn.disabled) {
+                    e.preventDefault();
+                    calculateCorrelations();
+                }
+            }
+        });
+    </script>
+    <!-- Vercel Analytics -->
+    <script>
+        (function() {
+            if (typeof window === 'undefined') return;
+            var script = document.createElement('script');
+            script.src = '/_vercel/insights/script.js';
+            script.defer = true;
+            script.onerror = function() {
+                var fallback = document.createElement('script');
+                fallback.src = 'https://va.vercel-scripts.com/v1/script.js';
+                fallback.defer = true;
+                document.head.appendChild(fallback);
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
+
