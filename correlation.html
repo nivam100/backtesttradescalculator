@@ -1450,13 +1450,17 @@
             }
         });
 
-        // Improve dropdown hover behavior
+        // Improve dropdown hover behavior (desktop) and click behavior (mobile)
         (function() {
             const dropdown = document.querySelector('.nav-menu-dropdown');
             if (!dropdown) return;
             
             let hideTimeout;
             const content = dropdown.querySelector('.nav-menu-dropdown-content');
+            const button = dropdown.querySelector('.nav-menu-button');
+            
+            // Detect touch device
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
             
             function showDropdown() {
                 clearTimeout(hideTimeout);
@@ -1469,8 +1473,33 @@
                 }, 200); // 200ms delay before hiding
             }
             
-            dropdown.addEventListener('mouseenter', showDropdown);
-            dropdown.addEventListener('mouseleave', hideDropdown);
+            function toggleDropdown() {
+                if (content.style.display === 'block') {
+                    hideDropdown();
+                } else {
+                    showDropdown();
+                }
+            }
+            
+            if (isTouchDevice) {
+                // Mobile: use click/tap
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleDropdown();
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!dropdown.contains(e.target)) {
+                        content.style.display = 'none';
+                    }
+                });
+            } else {
+                // Desktop: use hover
+                dropdown.addEventListener('mouseenter', showDropdown);
+                dropdown.addEventListener('mouseleave', hideDropdown);
+            }
         })();
     </script>
     <!-- Vercel Analytics -->
