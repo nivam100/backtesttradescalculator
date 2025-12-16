@@ -752,6 +752,8 @@
                         </div>
                         <div class="section-title">Portfolio Statistics</div>
                         <div class="stats-grid" id="stats-grid"></div>
+                        <div class="section-title">Annual Returns</div>
+                        <div class="trades-table-container" id="annual-returns-table-container"></div>
                         <div class="section-title">Executed Trades</div>
                         <div class="trades-table-container" id="trades-table-container"></div>
                     </div>
@@ -1343,8 +1345,125 @@
             // Create drawdown chart
             createDrawdownChart(result);
             
+            // Display annual returns table
+            displayAnnualReturnsTable(result);
+            
             // Display trades table
             displayTradesTable(result.executedTrades || []);
+        }
+
+        function calculateAnnualReturns(result) {
+            if (!result.dates || result.dates.length === 0 || !result.equity || result.equity.length === 0) {
+                return [];
+            }
+
+            // Group data by year - track first and last balance for each year
+            const yearData = {};
+            
+            for (let i = 0; i < result.dates.length; i++) {
+                const date = result.dates[i];
+                const year = date.getFullYear();
+                const balance = result.equity[i];
+                
+                if (!yearData[year]) {
+                    // First entry for this year - this is the start balance
+                    // But we need to check if there's a previous year's end balance
+                    yearData[year] = {
+                        year: year,
+                        firstBalance: balance,
+                        lastBalance: balance,
+                        firstDate: date,
+                        lastDate: date
+                    };
+                } else {
+                    // Update last balance and date for this year
+                    yearData[year].lastBalance = balance;
+                    yearData[year].lastDate = date;
+                }
+            }
+
+            // Calculate returns for each year
+            const annualReturns = [];
+            const years = Object.keys(yearData).sort((a, b) => parseInt(a) - parseInt(b));
+            
+            for (let i = 0; i < years.length; i++) {
+                const year = parseInt(years[i]);
+                const data = yearData[year];
+                
+                // Determine start balance for this year
+                let startBalance;
+                if (i === 0) {
+                    // First year: use the starting balance from settings
+                    // But if the first trade date is not Jan 1, we should use the balance at the start of that year
+                    // Actually, equity[0] should be the starting balance, so data.firstBalance should be correct
+                    // But to be safe, let's use the starting balance from settings
+                    startBalance = result.startingBalance;
+                } else {
+                    // Subsequent years: use the last balance from the previous year
+                    const prevYear = parseInt(years[i - 1]);
+                    startBalance = yearData[prevYear].lastBalance;
+                }
+                
+                const endBalance = data.lastBalance;
+                let annualReturn = 0;
+                
+                if (startBalance > 0) {
+                    annualReturn = ((endBalance - startBalance) / startBalance) * 100;
+                }
+                
+                annualReturns.push({
+                    year: year,
+                    return: annualReturn,
+                    startBalance: startBalance,
+                    endBalance: endBalance
+                });
+            }
+
+            return annualReturns;
+        }
+
+        function displayAnnualReturnsTable(result) {
+            const container = document.getElementById('annual-returns-table-container');
+            const annualReturns = calculateAnnualReturns(result);
+            
+            if (annualReturns.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No annual return data available</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="trades-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Start Balance</th>
+                            <th>End Balance</th>
+                            <th>Annual Return</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            annualReturns.forEach(yearData => {
+                const returnClass = yearData.return >= 0 ? 'positive' : 'negative';
+                const returnSign = yearData.return >= 0 ? '+' : '';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${yearData.year}</td>
+                        <td>$${yearData.startBalance.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                        <td>$${yearData.endBalance.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                        <td class="${returnClass}">${returnSign}${yearData.return.toFixed(2)}%</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = tableHTML;
         }
 
         function displayTradesTable(trades) {
