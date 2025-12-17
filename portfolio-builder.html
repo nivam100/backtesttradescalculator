@@ -989,7 +989,7 @@
                 throw new Error('No date column found');
             }
 
-            let pnlCol = findColumnByKeywords(df, ['net_profit', 'net profit', 'pnl', 'profit']);
+            let pnlCol = findColumnByKeywords(df, ['net_profit', 'net profit', 'net p&l usd', 'pnl', 'p&l', 'profit']);
             if (!pnlCol) {
                 pnlCol = findColumnByKeywords(df, ['gain', 'loss', 'return']);
             }
