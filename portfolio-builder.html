@@ -752,6 +752,8 @@
                         </div>
                         <div class="section-title">Portfolio Statistics</div>
                         <div class="stats-grid" id="stats-grid"></div>
+                        <div class="section-title">Strategy Correlation Matrix</div>
+                        <div class="trades-table-container" id="correlation-matrix-container"></div>
                         <div class="section-title">Annual Returns</div>
                         <div class="trades-table-container" id="annual-returns-table-container"></div>
                         <div class="section-title">Executed Trades</div>
@@ -1003,6 +1005,7 @@
             let exitPriceCol = findColumnByKeywords(df, ['exit_price', 'exit price', 'exit', 'sell_price', 'sell price', 'close_price', 'close price']);
             let stopLossCol = findColumnByKeywords(df, ['stop_loss', 'stop loss', 'stop', 'sl']);
             let sharesCol = findColumnByKeywords(df, ['amount', 'shares', 'quantity', 'qty', 'size']);
+            let symbolCol = findColumnByKeywords(df, ['symbol', 'ticker', 'instrument', 'stock', 'asset']);
 
             const trades = df.data
                 .map(row => ({
@@ -1011,7 +1014,8 @@
                     entryPrice: entryPriceCol ? row[entryPriceCol] : null,
                     exitPrice: exitPriceCol ? row[exitPriceCol] : null,
                     stopLoss: stopLossCol ? row[stopLossCol] : null,
-                    shares: sharesCol ? row[sharesCol] : null
+                    shares: sharesCol ? row[sharesCol] : null,
+                    symbol: symbolCol ? row[symbolCol] : null
                 }))
                 .filter(row => row.date != null && row.pnl != null)
                 .map(row => {
@@ -1051,7 +1055,8 @@
                         returnPercent,
                         entryPrice: row.entryPrice ? parseFloat(row.entryPrice) : null,
                         stopLoss: row.stopLoss ? parseFloat(row.stopLoss) : null,
-                        shares: row.shares ? parseFloat(row.shares) : null
+                        shares: row.shares ? parseFloat(row.shares) : null,
+                        symbol: row.symbol ? String(row.symbol) : null
                     };
                 })
                 .filter(row => row != null)
@@ -1096,12 +1101,19 @@
                         console.log(`  ${st.name}: ${st.multiplier}`);
                     });
 
+                    // Calculate total number of trades (rows in all Excel sheets)
+                    const totalTrades = strategyTrades.reduce((sum, st) => sum + st.trades.length, 0);
+
                     // Run portfolio simulation
                     const result = simulatePortfolio(strategyTrades, {
                         startingBalance: parseFloat(document.getElementById('starting-balance').value),
                         maxTradesPerDay: parseInt(document.getElementById('max-trades-day').value),
                         maxOpenPositions: parseInt(document.getElementById('max-positions').value)
                     });
+
+                    // Add total trades and strategy trades to result
+                    result.totalTrades = totalTrades;
+                    result.strategyTrades = strategyTrades;
 
                     // Display results
                     displayResults(result);
@@ -1262,6 +1274,7 @@
                         entryDate: date, // Since we only have exit dates, use exit date as entry
                         exitDate: date,
                         strategy: trade.strategy.name,
+                        symbol: trade.symbol,
                         originalPnL: trade.pnl,
                         adjustedPnL: scaledPnL,
                         balance: currentBalance
@@ -1334,6 +1347,10 @@
                     <div class="stat-label">Peak Balance</div>
                     <div class="stat-value">$${result.peak.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-label">Number of Trades</div>
+                    <div class="stat-value">${result.totalTrades ? result.totalTrades.toLocaleString() : '0'}</div>
+                </div>
             `;
 
             // Store result for chart toggling
@@ -1344,6 +1361,9 @@
             
             // Create drawdown chart
             createDrawdownChart(result);
+            
+            // Display correlation matrix
+            displayCorrelationMatrix(result.strategyTrades || []);
             
             // Display annual returns table
             displayAnnualReturnsTable(result);
@@ -1422,6 +1442,200 @@
             return annualReturns;
         }
 
+        // Correlation matrix functions
+        function pearsonCorrelation(x, y) {
+            const n = x.length;
+            const sumX = x.reduce((a, b) => a + b, 0);
+            const sumY = y.reduce((a, b) => a + b, 0);
+            const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+            const sumX2 = x.reduce((a, b) => a + b * b, 0);
+            const sumY2 = y.reduce((a, b) => a + b * b, 0);
+
+            const numerator = n * sumXY - sumX * sumY;
+            const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+            
+            if (denominator === 0) return 0;
+            return numerator / denominator;
+        }
+
+        function spearmanCorrelation(x, y) {
+            // Create ranked arrays
+            const rank = (arr) => {
+                const sorted = [...arr].map((val, idx) => ({ val, idx })).sort((a, b) => a.val - b.val);
+                const ranks = new Array(arr.length);
+                sorted.forEach((item, rankIdx) => {
+                    ranks[item.idx] = rankIdx + 1;
+                });
+                return ranks;
+            };
+
+            const rx = rank(x);
+            const ry = rank(y);
+            return pearsonCorrelation(rx, ry);
+        }
+
+        function isBusinessDay(date) {
+            const day = date.getDay();
+            return day !== 0 && day !== 6; // Not Sunday (0) or Saturday (6)
+        }
+
+        function getBusinessDaysRange(startDate, endDate) {
+            const dates = [];
+            const current = new Date(startDate);
+            current.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(0, 0, 0, 0);
+
+            while (current <= end) {
+                if (isBusinessDay(current)) {
+                    dates.push(new Date(current));
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function extractDailyPnL(strategyTrades) {
+            // Aggregate trades by date for each strategy
+            const dailyData = {};
+            
+            strategyTrades.forEach(st => {
+                const daily = {};
+                st.trades.forEach(trade => {
+                    const dateKey = trade.date.getTime();
+                    if (!daily[dateKey]) {
+                        daily[dateKey] = 0;
+                    }
+                    daily[dateKey] += trade.pnl;
+                });
+                dailyData[st.name] = daily;
+            });
+            
+            return dailyData;
+        }
+
+        function alignAllSeries(dailyData) {
+            // Find common date range across all strategies
+            const allDates = new Set();
+            Object.values(dailyData).forEach(daily => {
+                Object.keys(daily).forEach(dateKey => allDates.add(parseInt(dateKey)));
+            });
+            
+            if (allDates.size === 0) return [];
+            
+            const sortedDates = Array.from(allDates).sort((a, b) => a - b);
+            const minDate = new Date(Math.min(...sortedDates));
+            const maxDate = new Date(Math.max(...sortedDates));
+            
+            // Create complete business day range
+            const allBusinessDays = getBusinessDaysRange(minDate, maxDate);
+            
+            // Create aligned series
+            const aligned = allBusinessDays.map(date => {
+                const key = date.getTime();
+                const row = { date };
+                Object.keys(dailyData).forEach(strategyName => {
+                    row[strategyName] = dailyData[strategyName][key] || 0;
+                });
+                return row;
+            });
+            
+            return aligned;
+        }
+
+        function calculateCorrelationMatrix(strategyTrades) {
+            if (strategyTrades.length < 2) {
+                return null; // Need at least 2 strategies
+            }
+            
+            // Extract daily PnL for each strategy
+            const dailyData = extractDailyPnL(strategyTrades);
+            
+            // Align all series
+            const aligned = alignAllSeries(dailyData);
+            
+            if (aligned.length < 3) {
+                return null; // Need at least 3 data points
+            }
+            
+            // Calculate correlation matrix
+            const strategyNames = strategyTrades.map(st => st.name);
+            const matrix = {};
+            
+            for (let i = 0; i < strategyNames.length; i++) {
+                for (let j = i; j < strategyNames.length; j++) {
+                    const name1 = strategyNames[i];
+                    const name2 = strategyNames[j];
+                    
+                    const x = aligned.map(row => row[name1]);
+                    const y = aligned.map(row => row[name2]);
+                    
+                    const corr = spearmanCorrelation(x, y);
+                    
+                    if (!matrix[name1]) matrix[name1] = {};
+                    if (!matrix[name2]) matrix[name2] = {};
+                    
+                    matrix[name1][name2] = corr;
+                    matrix[name2][name1] = corr;
+                }
+            }
+            
+            return { matrix, strategyNames, n: aligned.length };
+        }
+
+        function displayCorrelationMatrix(strategyTrades) {
+            const container = document.getElementById('correlation-matrix-container');
+            
+            if (!strategyTrades || strategyTrades.length < 2) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Need at least 2 strategies to calculate correlation matrix</div>';
+                return;
+            }
+            
+            const result = calculateCorrelationMatrix(strategyTrades);
+            
+            if (!result) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Not enough overlapping data to calculate correlations</div>';
+                return;
+            }
+            
+            const { matrix, strategyNames, n } = result;
+            
+            let tableHTML = `
+                <table class="trades-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Strategy</th>
+                            ${strategyNames.map(name => `<th style="text-align: center;">${name}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            strategyNames.forEach(name1 => {
+                tableHTML += `<tr>`;
+                tableHTML += `<td style="font-weight: 600;">${name1}</td>`;
+                strategyNames.forEach(name2 => {
+                    const corr = matrix[name1][name2];
+                    const corrValue = isNaN(corr) ? 'N/A' : corr.toFixed(4);
+                    const cellStyle = name1 === name2 
+                        ? 'background: #fafafa; text-align: center;' 
+                        : 'text-align: center;';
+                    tableHTML += `<td style="${cellStyle}">${corrValue}</td>`;
+                });
+                tableHTML += `</tr>`;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 12px; font-size: 12px; color: #666; text-align: center;">
+                    Spearman correlation based on ${n} aligned trading days
+                </div>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+
         function displayAnnualReturnsTable(result) {
             const container = document.getElementById('annual-returns-table-container');
             const annualReturns = calculateAnnualReturns(result);
@@ -1496,6 +1710,7 @@
                             <th>Entry Date</th>
                             <th>Exit Date</th>
                             <th>Strategy</th>
+                            <th>Symbol</th>
                             <th>Original PnL</th>
                             <th>Adjusted PnL</th>
                             <th>Balance</th>
@@ -1515,6 +1730,7 @@
                         <td>${entryDate}</td>
                         <td>${exitDate}</td>
                         <td>${trade.strategy}</td>
+                        <td>${trade.symbol || '-'}</td>
                         <td class="${originalPnLClass}">$${trade.originalPnL.toFixed(2)}</td>
                         <td class="${adjustedPnLClass}">$${trade.adjustedPnL.toFixed(2)}</td>
                         <td>$${trade.balance.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
