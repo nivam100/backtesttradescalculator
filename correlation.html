@@ -1221,9 +1221,7 @@
                 }
             }
             
-            const pearsonScore = scoreCorrelation(results.pearson);
             const spearmanScore = scoreCorrelation(results.spearman);
-            const kendallScore = scoreCorrelation(results.kendall);
             
             // Tail Dependence: Lower is better (0 = perfect, 1 = worst)
             // Lower tail dependence is more critical than upper (crashes matter more)
@@ -1231,18 +1229,14 @@
             const upperTailScore = 1 - (results.empLambdaUpper || 0);
             
             // Weighted combination (weights sum to 1.0):
-            // - Lower Tail Dependence: 40% (most critical - don't want crashes together)
-            // - Spearman: 25% (best overall correlation measure)
-            // - Pearson: 15% (linear relationship)
-            // - Kendall: 10% (pairwise agreement)
-            // - Upper Tail Dependence: 10% (less critical than lower tail)
+            // - Lower Tail Dependence: 50% (most critical - don't want crashes together)
+            // - Spearman: 30% (best overall correlation measure)
+            // - Upper Tail Dependence: 20% (less critical than lower tail)
             
             const combinedScore = 
-                (lowerTailScore * 0.40) +
-                (spearmanScore * 0.25) +
-                (pearsonScore * 0.15) +
-                (kendallScore * 0.10) +
-                (upperTailScore * 0.10);
+                (lowerTailScore * 0.50) +
+                (spearmanScore * 0.30) +
+                (upperTailScore * 0.20);
             
             // Scale from 0-1 to 1-10 and round
             const rank = Math.round(combinedScore * 9) + 1;
@@ -1251,9 +1245,7 @@
                 rank: rank,
                 score: combinedScore,
                 breakdown: {
-                    pearson: pearsonScore,
                     spearman: spearmanScore,
-                    kendall: kendallScore,
                     lowerTail: lowerTailScore,
                     upperTail: upperTailScore
                 }
@@ -1296,11 +1288,9 @@
                                     see why
                                     <span class="tooltip" style="width: 320px; text-align: left; bottom: calc(100% + 12px);">
                                         <strong>How it's calculated:</strong><br><br>
-                                        • Lower Tail Dependence: 40% weight (most critical - don't want crashes together)<br>
-                                        • Spearman Correlation: 25% weight (best overall correlation measure)<br>
-                                        • Pearson Correlation: 15% weight (linear relationship)<br>
-                                        • Kendall's Tau: 10% weight (pairwise agreement)<br>
-                                        • Upper Tail Dependence: 10% weight (less critical than lower tail)<br><br>
+                                        • Lower Tail Dependence: 50% weight (most critical - don't want crashes together)<br>
+                                        • Spearman Correlation: 30% weight (best overall correlation measure)<br>
+                                        • Upper Tail Dependence: 20% weight (less critical than lower tail)<br><br>
                                         <strong>Scoring:</strong> Lower correlation and lower tail dependence = higher rank (better diversification)
                                     </span>
                                 </span>
@@ -1308,25 +1298,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="section-title">Regular Correlations</div>
+                <div class="section-title">Correlation</div>
                 <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-label">
-                            Pearson Correlation
-                            <span class="help-icon-container">
-                                <span class="help-icon">?
-                                    <span class="tooltip">
-                                        <strong>What it measures:</strong> How closely two strategies move together in a straight-line relationship.<br><br>
-                                        <strong>Example:</strong> If Strategy A makes $100, Strategy B makes $50. If A makes $200, B makes $100. This is a perfect linear relationship (correlation = 1.0).<br><br>
-                                        <strong>Use when:</strong> You care about proportional relationships - if one strategy doubles, does the other double too?
-                                    </span>
-                                </span>
-                            </span>
-                        </div>
-                        <div class="metric-value">${formatValue(results.pearson)}</div>
-                        <div class="metric-interpretation">${interpretCorrelation(results.pearson)}</div>
-                        <div class="metric-description">Linear correlation coefficient (-1 to 1)</div>
-                    </div>
                     <div class="metric-card">
                         <div class="metric-label">
                             Spearman Correlation
@@ -1343,23 +1316,6 @@
                         <div class="metric-value">${formatValue(results.spearman)}</div>
                         <div class="metric-interpretation">${interpretCorrelation(results.spearman)}</div>
                         <div class="metric-description">Rank-based correlation, robust to outliers</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">
-                            Kendall's Tau
-                            <span class="help-icon-container">
-                                <span class="help-icon">?
-                                    <span class="tooltip">
-                                        <strong>What it measures:</strong> How often pairs of days move together in the same direction.<br><br>
-                                        <strong>Example:</strong> Compare Day 1 vs Day 2: both up? Compare Day 1 vs Day 3: both down? Count how many pairs agree vs disagree.<br><br>
-                                        <strong>Use when:</strong> Similar to Spearman - you care about direction. More robust to ties (days with same PnL).
-                                    </span>
-                                </span>
-                            </span>
-                        </div>
-                        <div class="metric-value">${formatValue(results.kendall)}</div>
-                        <div class="metric-interpretation">${interpretCorrelation(results.kendall)}</div>
-                        <div class="metric-description">Concordance-based correlation measure</div>
                     </div>
                 </div>
 
