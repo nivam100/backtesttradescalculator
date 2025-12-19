@@ -731,6 +731,20 @@
                             <input type="number" id="max-positions" min="1" step="1" value="5" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 15px;">
                         </div>
                     </div>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e5e5;">
+                        <div style="font-size: 14px; font-weight: 500; margin-bottom: 12px; color: #1a1a1a;">Date Range (Optional)</div>
+                        <div class="portfolio-settings-grid">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="start-date">Start Date</label>
+                                <input type="date" id="start-date" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 15px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="end-date">End Date</label>
+                                <input type="date" id="end-date" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 15px;">
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-top: 8px;">Leave empty to use all available dates</div>
+                    </div>
                 </div>
 
                 <button class="calculate-btn" id="calculate-btn" onclick="runPortfolioSimulation()" disabled>Build Portfolio</button>
@@ -1083,7 +1097,7 @@
             setTimeout(() => {
                 try {
                     // Load all strategy trades - explicitly copy multiplier to ensure latest value
-                    const strategyTrades = strategies.map(s => {
+                    let strategyTrades = strategies.map(s => {
                         const trades = loadStrategyTrades(s.workbook);
                         return {
                             id: s.id,
@@ -1095,13 +1109,44 @@
                         };
                     });
                     
+                    // Apply date range filter if specified
+                    const startDateInput = document.getElementById('start-date').value;
+                    const endDateInput = document.getElementById('end-date').value;
+                    
+                    if (startDateInput || endDateInput) {
+                        const startDate = startDateInput ? new Date(startDateInput) : null;
+                        const endDate = endDateInput ? new Date(endDateInput) : null;
+                        
+                        if (startDate) startDate.setHours(0, 0, 0, 0);
+                        if (endDate) endDate.setHours(23, 59, 59, 999);
+                        
+                        // Validate date range
+                        if (startDate && endDate && startDate > endDate) {
+                            throw new Error('Start date must be before or equal to end date');
+                        }
+                        
+                        // Filter trades by date range
+                        strategyTrades = strategyTrades.map(st => {
+                            const filteredTrades = st.trades.filter(trade => {
+                                const tradeDate = trade.date.getTime();
+                                if (startDate && tradeDate < startDate.getTime()) return false;
+                                if (endDate && tradeDate > endDate.getTime()) return false;
+                                return true;
+                            });
+                            return {
+                                ...st,
+                                trades: filteredTrades
+                            };
+                        });
+                    }
+                    
                     // Debug: Log multipliers being used
                     console.log('Strategy multipliers at simulation start:');
                     strategyTrades.forEach(st => {
                         console.log(`  ${st.name}: ${st.multiplier}`);
                     });
 
-                    // Calculate total number of trades (rows in all Excel sheets)
+                    // Calculate total number of trades (rows in all Excel sheets) after filtering
                     const totalTrades = strategyTrades.reduce((sum, st) => sum + st.trades.length, 0);
 
                     // Run portfolio simulation
