@@ -222,6 +222,19 @@
             margin-bottom: 20px;
         }
 
+        .portfolio-item {
+            background: white;
+            border: 2px solid #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .portfolio-item.nested {
+            border-color: #666;
+            border-width: 1px;
+        }
+
         .strategy-header {
             display: flex;
             justify-content: space-between;
@@ -233,6 +246,30 @@
             font-weight: 600;
             font-size: 16px;
             color: #1a1a1a;
+        }
+
+        .portfolio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .portfolio-header .portfolio-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1a1a1a;
+        }
+
+        .portfolio-items-container {
+            margin-top: 16px;
+            padding-left: 0;
+        }
+
+        .portfolio-items-container.nested {
+            padding-left: 16px;
         }
 
         .strategy-remove {
@@ -699,7 +736,10 @@
         <div class="content">
             <div class="calculator">
                 <div class="form-group">
-                    <label>Strategies (Upload up to 10 Excel files)</label>
+                    <label>Portfolios and Strategies</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <button onclick="addPortfolio()" style="padding: 8px 16px; background: #1a1a1a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">+ Add Portfolio</button>
+                    </div>
                     <div id="strategies-container"></div>
                     <div class="drop-zone" id="add-strategy-zone">
                         <div class="drop-zone-icon">
@@ -770,7 +810,12 @@
                         <div class="trades-table-container" id="correlation-matrix-container"></div>
                         <div class="section-title">Annual Returns</div>
                         <div class="trades-table-container" id="annual-returns-table-container"></div>
-                        <div class="section-title">Executed Trades</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div class="section-title" style="margin-bottom: 0;">Executed Trades</div>
+                            <button id="download-trades-btn" onclick="downloadTradesExcel()" style="display: none; padding: 8px 16px; background: #1a1a1a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                                📥 Download Excel
+                            </button>
+                        </div>
                         <div class="trades-table-container" id="trades-table-container"></div>
                     </div>
                 </div>
@@ -779,7 +824,7 @@
     </div>
 
     <script>
-        let strategies = [];
+        let items = []; // Can contain both strategies and portfolios
         let equityChart = null;
         let drawdownChart = null;
         let currentEquityMode = 'compounded';
@@ -817,12 +862,7 @@
             });
         }
 
-        function addStrategy(file) {
-            if (strategies.length >= 10) {
-                showError('Maximum 10 strategies allowed');
-                return;
-            }
-
+        function addStrategy(file, parentPortfolioId = null) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -830,16 +870,25 @@
                     const workbook = XLSX.read(data, { type: 'array' });
                     
                     const strategy = {
+                        type: 'strategy',
                         id: Date.now() + Math.random(),
                         name: file.name.replace(/\.(xlsx|xls)$/i, ''),
                         file: file,
                         workbook: workbook,
-                        multiplier: 1.0, // Simple multiplier: if PnL is $100 and multiplier is 2x, scaled PnL = $200
+                        multiplier: 1.0,
                         maxTradesPerDay: 5,
-                        maxTradesParallel: 2
+                        maxTradesParallel: 2,
+                        parentPortfolioId: parentPortfolioId
                     };
 
-                    strategies.push(strategy);
+                    if (parentPortfolioId) {
+                        const portfolio = findItemById(items, parentPortfolioId);
+                        if (portfolio && portfolio.type === 'portfolio') {
+                            portfolio.items.push(strategy);
+                        }
+                    } else {
+                        items.push(strategy);
+                    }
                     renderStrategies();
                     checkCanCalculate();
                 } catch (error) {
@@ -849,8 +898,53 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function removeStrategy(id) {
-            strategies = strategies.filter(s => s.id !== id);
+        function addPortfolio() {
+            const portfolio = {
+                type: 'portfolio',
+                id: Date.now() + Math.random(),
+                name: `Portfolio ${items.filter(i => i.type === 'portfolio').length + 1}`,
+                items: [],
+                maxTradesPerDay: 3,
+                maxTradesParallel: 3
+            };
+            items.push(portfolio);
+            renderStrategies();
+            checkCanCalculate();
+            
+            // Scroll to the newly added portfolio
+            setTimeout(() => {
+                const portfolioElement = document.querySelector(`[data-portfolio-id="${portfolio.id}"]`);
+                if (portfolioElement) {
+                    portfolioElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Add a subtle highlight effect
+                    portfolioElement.style.transition = 'box-shadow 0.3s ease';
+                    portfolioElement.style.boxShadow = '0 0 0 3px rgba(26, 26, 26, 0.2)';
+                    setTimeout(() => {
+                        portfolioElement.style.boxShadow = '';
+                    }, 2000);
+                }
+            }, 100);
+        }
+
+        function findItemById(itemsArray, id) {
+            for (const item of itemsArray) {
+                if (item.id === id) return item;
+                if (item.type === 'portfolio' && item.items) {
+                    const found = findItemById(item.items, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function removeItem(id) {
+            items = items.filter(i => i.id !== id);
+            // Also remove from nested portfolios
+            items.forEach(item => {
+                if (item.type === 'portfolio' && item.items) {
+                    item.items = item.items.filter(i => i.id !== id);
+                }
+            });
             renderStrategies();
             checkCanCalculate();
         }
@@ -858,58 +952,122 @@
         function renderStrategies() {
             const container = document.getElementById('strategies-container');
             container.innerHTML = '';
+            renderItems(items, container, false);
+        }
 
-            strategies.forEach(strategy => {
+        function renderItems(itemsArray, container, isNested) {
+            itemsArray.forEach(item => {
+                if (item.type === 'strategy') {
                 const div = document.createElement('div');
-                div.className = 'strategy-item';
+                    div.className = isNested ? 'strategy-item nested' : 'strategy-item';
                 div.innerHTML = `
                     <div class="strategy-header">
-                        <div class="strategy-name">${strategy.name}</div>
-                        <button class="strategy-remove" onclick="removeStrategy(${strategy.id})">×</button>
+                            <div class="strategy-name">${item.name}</div>
+                            <button class="strategy-remove" onclick="removeItem(${item.id})">×</button>
                     </div>
                     <div class="strategy-inputs">
                         <div class="strategy-input-group">
                             <label>Multiplier</label>
-                            <input type="number" min="0.1" max="100" step="0.1" value="${strategy.multiplier || 1.0}" 
-                                   onchange="updateStrategy(${strategy.id}, 'multiplier', this.value)" 
-                                   onblur="updateStrategy(${strategy.id}, 'multiplier', this.value)"
-                                   oninput="updateStrategy(${strategy.id}, 'multiplier', this.value)"
+                                <input type="number" min="0.1" max="100" step="0.1" value="${item.multiplier || 1.0}" 
+                                       onchange="updateItem(${item.id}, 'multiplier', this.value)" 
+                                       onblur="updateItem(${item.id}, 'multiplier', this.value)"
+                                       oninput="updateItem(${item.id}, 'multiplier', this.value)"
                                    placeholder="1.0" title="PnL multiplier: if PnL is $100 and multiplier is 2x, scaled PnL = $200">
                         </div>
                         <div class="strategy-input-group">
                             <label>Max Trades Per Day</label>
-                            <input type="number" min="1" step="1" value="${strategy.maxTradesPerDay}" 
-                                   onchange="updateStrategy(${strategy.id}, 'maxTradesPerDay', this.value)">
+                                <input type="number" min="1" step="1" value="${item.maxTradesPerDay}" 
+                                       onchange="updateItem(${item.id}, 'maxTradesPerDay', this.value)">
                         </div>
                         <div class="strategy-input-group">
                             <label>Max Trades Parallel</label>
-                            <input type="number" min="1" step="1" value="${strategy.maxTradesParallel}" 
-                                   onchange="updateStrategy(${strategy.id}, 'maxTradesParallel', this.value)">
+                                <input type="number" min="1" step="1" value="${item.maxTradesParallel}" 
+                                       onchange="updateItem(${item.id}, 'maxTradesParallel', this.value)">
                         </div>
                     </div>
                 `;
                 container.appendChild(div);
+                } else if (item.type === 'portfolio') {
+                    const div = document.createElement('div');
+                    div.className = isNested ? 'portfolio-item nested' : 'portfolio-item';
+                    div.setAttribute('data-portfolio-id', item.id);
+                    
+                    const itemsContainer = document.createElement('div');
+                    itemsContainer.className = isNested ? 'portfolio-items-container nested' : 'portfolio-items-container';
+                    
+                    div.innerHTML = `
+                        <div class="portfolio-header">
+                            <div>
+                                <div class="portfolio-name">${item.name}</div>
+                                <div style="font-size: 12px; color: #666; margin-top: 4px;">Portfolio</div>
+                            </div>
+                            <button class="strategy-remove" onclick="removeItem(${item.id})">×</button>
+                        </div>
+                        <div class="portfolio-settings-grid" style="margin-bottom: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Portfolio Name</label>
+                                <input type="text" value="${item.name}" 
+                                       onchange="updateItem(${item.id}, 'name', this.value)"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 14px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Max Trades Per Day</label>
+                                <input type="number" min="1" step="1" value="${item.maxTradesPerDay}" 
+                                       onchange="updateItem(${item.id}, 'maxTradesPerDay', this.value)"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 14px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Max Trades Parallel</label>
+                                <input type="number" min="1" step="1" value="${item.maxTradesParallel}" 
+                                       onchange="updateItem(${item.id}, 'maxTradesParallel', this.value)"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 14px;">
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <button onclick="addStrategyToPortfolio(${item.id})" style="padding: 6px 12px; background: #1a1a1a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">+ Add Strategy to Portfolio</button>
+                        </div>
+                    `;
+                    div.appendChild(itemsContainer);
+                    container.appendChild(div);
+                    renderItems(item.items || [], itemsContainer, true);
+                }
             });
         }
 
-        function updateStrategy(id, field, value) {
-            const strategy = strategies.find(s => s.id === id);
-            if (strategy) {
+        function addStrategyToPortfolio(portfolioId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls,.csv';
+            input.multiple = true;
+            input.onchange = (e) => {
+                const files = Array.from(e.target.files).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv'));
+                files.forEach(file => addStrategy(file, portfolioId));
+            };
+            input.click();
+        }
+
+        function updateItem(id, field, value) {
+            const item = findItemById(items, id);
+            if (item) {
+                if (field === 'name') {
+                    item[field] = value;
+                } else {
                 const numValue = parseFloat(value);
                 if (!isNaN(numValue) && numValue > 0) {
-                    strategy[field] = numValue;
-                    console.log(`Updated strategy ${strategy.name}: ${field} = ${strategy[field]}`);
+                        item[field] = numValue;
+                        console.log(`Updated ${item.type} ${item.name}: ${field} = ${item[field]}`);
                 } else if (field === 'multiplier') {
-                    // Ensure multiplier is always valid
-                    strategy[field] = 1.0;
-                    console.warn(`Invalid multiplier for ${strategy.name}, reset to 1.0`);
+                        item[field] = 1.0;
+                        console.warn(`Invalid multiplier for ${item.name}, reset to 1.0`);
+                    }
                 }
             }
         }
 
         function checkCanCalculate() {
             const btn = document.getElementById('calculate-btn');
-            btn.disabled = strategies.length === 0;
+            const hasItems = items.length > 0 || items.some(item => item.type === 'portfolio' && item.items && item.items.length > 0);
+            btn.disabled = !hasItems;
         }
 
         function showError(message) {
@@ -941,10 +1099,30 @@
             }
             
             if (typeof value === 'string') {
-                const date = new Date(value);
+                // Try parsing the string directly
+                let date = new Date(value);
                 if (!isNaN(date.getTime())) {
+                    // If the string contains a time component (has space and colon), preserve it
+                    // Otherwise, set to midnight
+                    if (!value.includes(' ') || !value.includes(':')) {
                     date.setHours(0, 0, 0, 0);
+                    }
                     return date;
+                }
+                
+                // Try common date formats
+                // Format: "YYYY-MM-DD HH:MM" or "YYYY-MM-DD"
+                const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+                if (dateMatch) {
+                    const dateStr = dateMatch[1];
+                    const hour = dateMatch[2] ? parseInt(dateMatch[2]) : 0;
+                    const minute = dateMatch[3] ? parseInt(dateMatch[3]) : 0;
+                    const second = dateMatch[4] ? parseInt(dateMatch[4]) : 0;
+                    date = new Date(dateStr);
+                    if (!isNaN(date.getTime())) {
+                        date.setHours(hour, minute, second, 0);
+                        return date;
+                    }
                 }
             }
             
@@ -987,22 +1165,113 @@
                 })
             };
 
-            let dateCol = findColumnByKeywords(df, ['date', 'exit_date', 'exit date']);
-            if (!dateCol) {
-                const exitTimeCol = findColumnByKeywords(df, ['exit_time', 'exit time', 'exit']);
-                if (exitTimeCol) {
-                    const sample = df.data.slice(0, 10).map(row => row[exitTimeCol]);
+            // Find base date column
+            let dateCol = findColumnByKeywords(df, ['date']);
+            if (dateCol) {
+                // Check if it's actually a date column
+                const sample = df.data.slice(0, 10).map(row => row[dateCol]);
                     const hasDates = sample.some(val => {
                         if (!val) return false;
                         const d = parseExcelDate(val);
                         return d && d.getFullYear() > 1900;
                     });
-                    if (hasDates) dateCol = exitTimeCol;
-                }
+                if (!hasDates) dateCol = null;
             }
 
-            if (!dateCol) {
-                throw new Error('No date column found');
+            // Find exit date/time columns
+            // First try to find explicit exit date columns
+            let exitDateCol = findColumnByKeywords(df, ['exit_date', 'exit date', 'close_date', 'close date']);
+            let exitTimeCol = findColumnByKeywords(df, ['exit_time', 'exit time', 'close_time', 'close time']);
+            
+            // If we found exit_time but no exit_date, check if exit_time column actually contains dates
+            if (!exitDateCol && exitTimeCol) {
+                const sample = df.data.slice(0, 10).map(row => row[exitTimeCol]).filter(v => v != null);
+                const hasDates = sample.some(val => {
+                    if (!val) return false;
+                    const d = parseExcelDate(val);
+                    return d && d.getFullYear() > 1900;
+                });
+                if (hasDates) {
+                    // exit_time column actually contains dates, use it as exitDateCol
+                    exitDateCol = exitTimeCol;
+                    exitTimeCol = null; // Don't treat it as a separate time column
+                } else if (dateCol) {
+                    // exit_time is just time, combine with date column
+                    exitDateCol = dateCol;
+                }
+            }
+            
+            // If still no exitDateCol, try broader search
+            if (!exitDateCol) {
+                exitDateCol = findColumnByKeywords(df, ['exit', 'close']);
+                // Check if this column actually contains dates
+                if (exitDateCol) {
+                    const sample = df.data.slice(0, 10).map(row => row[exitDateCol]).filter(v => v != null);
+                    const hasDates = sample.some(val => {
+                        if (!val) return false;
+                        const d = parseExcelDate(val);
+                        return d && d.getFullYear() > 1900;
+                    });
+                    if (!hasDates) {
+                        exitDateCol = null; // Not a date column
+                    }
+                }
+            }
+            
+            // Final fallback to date column
+            if (!exitDateCol) {
+                exitDateCol = dateCol;
+            }
+
+            if (!exitDateCol) {
+                // List available columns for debugging
+                const availableCols = df.columns.map(c => String(c)).join(', ');
+                throw new Error(`No exit date column found. Looking for: exit_date, exit date, exit_time, exit time, exit, close, or date. Available columns: ${availableCols}`);
+            }
+
+            // Find entry date/time columns
+            // First try to find explicit entry date columns
+            let entryDateCol = findColumnByKeywords(df, ['entry_date', 'entry date', 'open_date', 'open date']);
+            let entryTimeCol = findColumnByKeywords(df, ['entry_time', 'entry time', 'open_time', 'open time']);
+            
+            // If we found entry_time but no entry_date, check if entry_time column actually contains dates
+            if (!entryDateCol && entryTimeCol) {
+                const sample = df.data.slice(0, 10).map(row => row[entryTimeCol]).filter(v => v != null);
+                const hasDates = sample.some(val => {
+                    if (!val) return false;
+                    const d = parseExcelDate(val);
+                    return d && d.getFullYear() > 1900;
+                });
+                if (hasDates) {
+                    // entry_time column actually contains dates, use it as entryDateCol
+                    entryDateCol = entryTimeCol;
+                    entryTimeCol = null; // Don't treat it as a separate time column
+                } else if (dateCol) {
+                    // entry_time is just time, combine with date column
+                    entryDateCol = dateCol;
+                }
+            }
+            
+            // If still no entryDateCol, try broader search
+            if (!entryDateCol) {
+                entryDateCol = findColumnByKeywords(df, ['entry', 'open']);
+                // Check if this column actually contains dates
+                if (entryDateCol) {
+                    const sample = df.data.slice(0, 10).map(row => row[entryDateCol]).filter(v => v != null);
+                    const hasDates = sample.some(val => {
+                        if (!val) return false;
+                        const d = parseExcelDate(val);
+                        return d && d.getFullYear() > 1900;
+                    });
+                    if (!hasDates) {
+                        entryDateCol = null; // Not a date column
+                    }
+                }
+            }
+            
+            // Final fallback to exit date or date column
+            if (!entryDateCol) {
+                entryDateCol = exitDateCol;
             }
 
             let pnlCol = findColumnByKeywords(df, ['net_profit', 'net profit', 'net p&l usd', 'pnl', 'p&l', 'profit']);
@@ -1022,20 +1291,96 @@
             let symbolCol = findColumnByKeywords(df, ['symbol', 'ticker', 'instrument', 'stock', 'asset']);
 
             const trades = df.data
-                .map(row => ({
-                    date: row[dateCol],
+                .filter(row => {
+                    // Skip completely empty rows
+                    const hasAnyValue = Object.values(row).some(val => val != null && val !== '');
+                    if (!hasAnyValue) return false;
+                    
+                    // Check if exitDate column has a value (or can be derived from date column)
+                    const exitDateValue = row[exitDateCol];
+                    const dateValue = dateCol ? row[dateCol] : null;
+                    if (exitDateValue == null && dateValue == null) {
+                        return false; // Skip rows without any date
+                    }
+                    
+                    // Check if PnL column has a value
+                    if (row[pnlCol] == null) {
+                        return false; // Skip rows without PnL
+                    }
+                    
+                    return true;
+                })
+                .map(row => {
+                    // Combine date with time if we have time columns
+                    let exitDateValue = row[exitDateCol];
+                    let entryDateValue = entryDateCol ? row[entryDateCol] : exitDateValue;
+                    
+                    // Handle null/undefined values
+                    if (exitDateValue == null && dateCol) {
+                        exitDateValue = row[dateCol];
+                    }
+                    if (entryDateValue == null && exitDateValue != null) {
+                        entryDateValue = exitDateValue;
+                    }
+                    
+                    // If we have time columns, combine date + time
+                    if (exitTimeCol && row[exitTimeCol] && dateCol && exitDateValue) {
+                        const dateStr = String(row[dateCol] || exitDateValue || '');
+                        const timeStr = String(row[exitTimeCol] || '');
+                        // Combine date and time (e.g., "2008-01-24" + "15:55" = "2008-01-24 15:55")
+                        if (dateStr && timeStr) {
+                            exitDateValue = `${dateStr} ${timeStr}`.trim();
+                        }
+                    }
+                    
+                    if (entryTimeCol && row[entryTimeCol] && dateCol && entryDateCol === dateCol && entryDateValue) {
+                        const dateStr = String(row[dateCol] || entryDateValue || '');
+                        const timeStr = String(row[entryTimeCol] || '');
+                        if (dateStr && timeStr) {
+                            entryDateValue = `${dateStr} ${timeStr}`.trim();
+                        }
+                    }
+                    
+                    return {
+                        exitDate: exitDateValue,
+                        entryDate: entryDateValue,
                     pnl: row[pnlCol],
                     entryPrice: entryPriceCol ? row[entryPriceCol] : null,
                     exitPrice: exitPriceCol ? row[exitPriceCol] : null,
                     stopLoss: stopLossCol ? row[stopLossCol] : null,
-                    shares: sharesCol ? row[sharesCol] : null,
-                    symbol: symbolCol ? row[symbolCol] : null
-                }))
-                .filter(row => row.date != null && row.pnl != null)
+                        shares: sharesCol ? row[sharesCol] : null,
+                        symbol: symbolCol ? row[symbolCol] : null
+                    };
+                })
+                .filter(row => {
+                    // Final validation - these should all pass now, but double-check
+                    if (row.exitDate == null) {
+                        return false;
+                    }
+                    if (row.pnl == null || isNaN(parseFloat(row.pnl))) {
+                        return false;
+                    }
+                    return true;
+                })
                 .map(row => {
-                    const date = parseExcelDate(row.date);
+                    const exitDate = parseExcelDate(row.exitDate);
+                    let entryDate = row.entryDate ? parseExcelDate(row.entryDate) : exitDate; // Use exit date as entry if not provided
                     const pnl = parseFloat(row.pnl);
-                    if (!date || isNaN(pnl)) return null;
+                    
+                    if (!exitDate) {
+                        console.warn(`Failed to parse exit date: ${row.exitDate}`);
+                        return null;
+                    }
+                    if (isNaN(pnl)) {
+                        console.warn(`Failed to parse PnL: ${row.pnl}`);
+                        return null;
+                    }
+                    
+                    // Validate entry date is before or equal to exit date
+                    if (entryDate && entryDate > exitDate) {
+                        console.warn(`Trade has entry date after exit date, using exit date as entry: ${entryDate.toLocaleDateString()} > ${exitDate.toLocaleDateString()}`);
+                        entryDate = exitDate;
+                    }
                     
                     // Calculate return percentage if we have entry and exit prices
                     let returnPercent = null;
@@ -1063,9 +1408,11 @@
                     }
                     
                     return { 
-                        date, 
+                        entryDate: entryDate || exitDate, // Fallback to exit date if entry date parsing failed
+                        exitDate: exitDate,
                         pnl, 
-                        originalDate: row.date,
+                        originalEntryDate: row.entryDate || row.exitDate,
+                        originalExitDate: row.exitDate,
                         returnPercent,
                         entryPrice: row.entryPrice ? parseFloat(row.entryPrice) : null,
                         stopLoss: row.stopLoss ? parseFloat(row.stopLoss) : null,
@@ -1074,17 +1421,50 @@
                     };
                 })
                 .filter(row => row != null)
-                .sort((a, b) => a.date.getTime() - b.date.getTime());
+                .sort((a, b) => a.entryDate.getTime() - b.entryDate.getTime());
+
+            if (trades.length === 0) {
+                console.error('No valid trades found after parsing.');
+                console.log('Available columns:', df.columns);
+                if (df.data.length > 0) {
+                    console.log('Sample row:', df.data[0]);
+                    console.log('exitDateCol:', exitDateCol);
+                    console.log('entryDateCol:', entryDateCol);
+                    console.log('exitTimeCol:', exitTimeCol);
+                    console.log('entryTimeCol:', entryTimeCol);
+                    console.log('dateCol:', dateCol);
+                    console.log('pnlCol:', pnlCol);
+                }
+            } else {
+                console.log(`Successfully loaded ${trades.length} trades`);
+            }
 
             return trades;
         }
 
+        function collectAllStrategies(itemsArray, parentPortfolio = null) {
+            const allStrategies = [];
+            itemsArray.forEach(item => {
+                if (item.type === 'strategy') {
+                    allStrategies.push({
+                        ...item,
+                        parentPortfolio: parentPortfolio
+                    });
+                } else if (item.type === 'portfolio') {
+                    // Recursively collect strategies from nested portfolios
+                    const nestedStrategies = collectAllStrategies(item.items || [], item);
+                    allStrategies.push(...nestedStrategies);
+                }
+            });
+            return allStrategies;
+        }
+
         function runPortfolioSimulation() {
-            if (strategies.length === 0) {
+            const allStrategies = collectAllStrategies(items);
+            if (allStrategies.length === 0) {
                 showError('Please add at least one strategy');
                 return;
             }
-
 
             const resultsContainer = document.getElementById('results-container');
             const loadingDiv = document.getElementById('loading');
@@ -1096,15 +1476,16 @@
 
             setTimeout(() => {
                 try {
-                    // Load all strategy trades - explicitly copy multiplier to ensure latest value
-                    let strategyTrades = strategies.map(s => {
+                    // Load all strategy trades from nested structure
+                    let strategyTrades = allStrategies.map(s => {
                         const trades = loadStrategyTrades(s.workbook);
                         return {
                             id: s.id,
                             name: s.name,
-                            multiplier: s.multiplier || 1.0, // Explicitly get current multiplier
+                            multiplier: s.multiplier || 1.0,
                             maxTradesPerDay: s.maxTradesPerDay,
                             maxTradesParallel: s.maxTradesParallel,
+                            parentPortfolio: s.parentPortfolio,
                             trades: trades
                         };
                     });
@@ -1128,9 +1509,11 @@
                         // Filter trades by date range
                         strategyTrades = strategyTrades.map(st => {
                             const filteredTrades = st.trades.filter(trade => {
-                                const tradeDate = trade.date.getTime();
-                                if (startDate && tradeDate < startDate.getTime()) return false;
-                                if (endDate && tradeDate > endDate.getTime()) return false;
+                                const entryDate = trade.entryDate.getTime();
+                                const exitDate = trade.exitDate.getTime();
+                                // Include trade if either entry or exit is within range
+                                if (startDate && exitDate < startDate.getTime()) return false;
+                                if (endDate && entryDate > endDate.getTime()) return false;
                                 return true;
                             });
                             return {
@@ -1149,12 +1532,12 @@
                     // Calculate total number of trades (rows in all Excel sheets) after filtering
                     const totalTrades = strategyTrades.reduce((sum, st) => sum + st.trades.length, 0);
 
-                    // Run portfolio simulation
-                    const result = simulatePortfolio(strategyTrades, {
+                    // Run portfolio simulation with nested portfolio support
+                    const result = simulatePortfolioWithNesting(strategyTrades, {
                         startingBalance: parseFloat(document.getElementById('starting-balance').value),
                         maxTradesPerDay: parseInt(document.getElementById('max-trades-day').value),
                         maxOpenPositions: parseInt(document.getElementById('max-positions').value)
-                    });
+                    }, items);
 
                     // Add total trades and strategy trades to result
                     result.totalTrades = totalTrades;
@@ -1176,7 +1559,30 @@
             }, 100);
         }
 
-        function simulatePortfolio(strategyTrades, settings) {
+        function simulatePortfolioWithNesting(strategyTrades, topLevelSettings, itemsStructure) {
+            // Create a map of portfolio constraints
+            const portfolioConstraints = {};
+            
+            // Build portfolio constraints map from nested portfolios
+            strategyTrades.forEach(st => {
+                if (st.parentPortfolio) {
+                    const portfolioId = st.parentPortfolio.id;
+                    if (!portfolioConstraints[portfolioId]) {
+                        portfolioConstraints[portfolioId] = {
+                            id: portfolioId,
+                            name: st.parentPortfolio.name,
+                            maxTradesPerDay: st.parentPortfolio.maxTradesPerDay,
+                            maxTradesParallel: st.parentPortfolio.maxTradesParallel
+                        };
+                    }
+                }
+            });
+            
+            // Run single simulation with all strategies, respecting portfolio constraints
+            return simulatePortfolio(strategyTrades, topLevelSettings, portfolioConstraints);
+        }
+
+        function simulatePortfolio(strategyTrades, settings, portfolioConstraints = {}) {
             // Since Excel files contain exit dates and PnL, we treat each trade as closing on its exit date
             // The PnL is already the final result, we just need to scale it by risk %
             
@@ -1185,9 +1591,15 @@
             const dates = [];
             let currentBalance = settings.startingBalance;
             let peak = settings.startingBalance;
-            const dailyTrades = {};
-            const strategyDailyCounts = {};
+            const dailyTrades = {}; // Top-level daily trade counts
+            const portfolioDailyCounts = {}; // Track daily counts per portfolio
+            const strategyDailyCounts = {}; // Track daily counts per strategy
             const executedTrades = []; // Track all executed trades for the table
+
+            // Initialize portfolio daily counts
+            Object.keys(portfolioConstraints).forEach(portfolioId => {
+                portfolioDailyCounts[portfolioId] = {};
+            });
 
             // Find the common date range (intersection) across all strategies
             let commonMinDate = null;
@@ -1199,10 +1611,11 @@
                     return;
                 }
                 
-                // Find min and max dates for this strategy
-                const strategyDates = st.trades.map(t => t.date.getTime());
-                const strategyMin = Math.min(...strategyDates);
-                const strategyMax = Math.max(...strategyDates);
+                // Find min and max dates for this strategy (consider both entry and exit dates)
+                const strategyEntryDates = st.trades.map(t => t.entryDate.getTime());
+                const strategyExitDates = st.trades.map(t => t.exitDate.getTime());
+                const strategyMin = Math.min(...strategyEntryDates, ...strategyExitDates);
+                const strategyMax = Math.max(...strategyEntryDates, ...strategyExitDates);
                 
                 // Update common range (intersection)
                 if (commonMinDate === null) {
@@ -1225,17 +1638,24 @@
             
             strategyTrades.forEach(st => {
                 st.trades = st.trades.filter(t => {
-                    const tradeDate = t.date.getTime();
-                    return tradeDate >= commonMinDate && tradeDate <= commonMaxDate;
+                    const entryDate = t.entryDate.getTime();
+                    const exitDate = t.exitDate.getTime();
+                    // Include trade if either entry or exit is within range
+                    return (entryDate >= commonMinDate && entryDate <= commonMaxDate) ||
+                           (exitDate >= commonMinDate && exitDate <= commonMaxDate) ||
+                           (entryDate < commonMinDate && exitDate > commonMaxDate); // Trade spans the range
                 });
             });
             
             console.log(`Common date range: ${commonMinDateObj.toLocaleDateString()} to ${commonMaxDateObj.toLocaleDateString()}`);
             
-            // Get all unique dates from filtered trades
+            // Get all unique dates from filtered trades (both entry and exit dates)
             const allDates = new Set();
             strategyTrades.forEach(st => {
-                st.trades.forEach(t => allDates.add(t.date.getTime()));
+                st.trades.forEach(t => {
+                    allDates.add(t.entryDate.getTime());
+                    allDates.add(t.exitDate.getTime());
+                });
             });
             
             if (allDates.size === 0) {
@@ -1250,9 +1670,18 @@
                 console.log(`Strategy ${st.name}: ${st.trades.length} trades`);
             });
 
-            // Initialize daily counts for all strategies
+            // Initialize daily counts and open position tracking for all strategies
+            const openPositions = {}; // Track open positions per strategy: { strategyId: [trade1, trade2, ...] }
+            const portfolioOpenPositions = {}; // Track open positions per portfolio: { portfolioId: count }
             strategyTrades.forEach(st => {
                 strategyDailyCounts[st.id] = {};
+                openPositions[st.id] = [];
+                if (st.parentPortfolio) {
+                    const portfolioId = st.parentPortfolio.id;
+                    if (!portfolioOpenPositions[portfolioId]) {
+                        portfolioOpenPositions[portfolioId] = 0;
+                    }
+                }
             });
 
             sortedDates.forEach(dateTime => {
@@ -1264,49 +1693,161 @@
                     dailyTrades[dateTime] = 0;
                 }
 
-                // Get all trades that exit on this date from all strategies
-                const tradesToday = [];
+                // Get current daily counts for limit checking
+                const currentDayCount = dailyTrades[dateTime] || 0;
+                const currentStrategyCounts = {};
+                const currentPortfolioCounts = {};
+                
+                // Count already-executed trades today
                 strategyTrades.forEach(st => {
-                    const dayCount = strategyDailyCounts[st.id][dateTime] || 0;
+                    currentStrategyCounts[st.id] = strategyDailyCounts[st.id][dateTime] || 0;
+                });
+                Object.keys(portfolioConstraints).forEach(pid => {
+                    currentPortfolioCounts[pid] = portfolioDailyCounts[pid][dateTime] || 0;
+                });
+
+                // STEP 1: First, open new positions that enter on this date
+                // (We need to open before closing so same-day trades can be opened and then closed)
+                const tradesEnteringToday = [];
+                strategyTrades.forEach(st => {
+                    const portfolioId = st.parentPortfolio ? st.parentPortfolio.id : null;
+                    const portfolio = portfolioId ? portfolioConstraints[portfolioId] : null;
                     
-                    // Check if strategy can take more trades today
-                    if (dayCount < st.maxTradesPerDay) {
-                        st.trades
-                            .filter(t => t.date.getTime() === dateTime)
-                            .forEach(trade => {
-                                tradesToday.push({
+                    // Get trades that want to enter today
+                    const availableTrades = st.trades.filter(t => t.entryDate.getTime() === dateTime);
+                    
+                    availableTrades.forEach(trade => {
+                        // Check parallel position limits
+                        const currentOpenCount = openPositions[st.id].length;
+                        if (currentOpenCount >= st.maxTradesParallel) {
+                            return; // Strategy has reached its parallel limit
+                        }
+                        
+                        if (portfolio) {
+                            const portfolioOpenCount = portfolioOpenPositions[portfolioId] || 0;
+                            if (portfolioOpenCount >= portfolio.maxTradesParallel) {
+                                return; // Portfolio has reached its parallel limit
+                            }
+                        }
+                        
+                        const totalOpenPositions = Object.values(openPositions).reduce((sum, positions) => sum + positions.length, 0);
+                        if (totalOpenPositions >= settings.maxOpenPositions) {
+                            return; // Top-level has reached its parallel limit
+                        }
+                        
+                        // Check daily limits - if this is a same-day trade, check if we can still execute today
+                        const isSameDay = trade.entryDate.getTime() === trade.exitDate.getTime();
+                        if (isSameDay) {
+                            // This trade will close today, so check daily limits
+                            const strategyCount = currentStrategyCounts[st.id] || 0;
+                            if (strategyCount >= st.maxTradesPerDay) {
+                                return; // Strategy daily limit reached
+                            }
+                            
+                            if (portfolio) {
+                                const portfolioCount = currentPortfolioCounts[portfolioId] || 0;
+                                if (portfolioCount >= portfolio.maxTradesPerDay) {
+                                    return; // Portfolio daily limit reached
+                                }
+                            }
+                            
+                            if (currentDayCount >= settings.maxTradesPerDay) {
+                                return; // Top-level daily limit reached
+                            }
+                        }
+                        
+                        // All checks passed - can open this position
+                        tradesEnteringToday.push({
                                     ...trade,
                                     strategyId: st.id,
-                                    strategy: st
+                            strategy: st,
+                            portfolioId: portfolioId
                                 });
                             });
+                });
+                
+                // Open positions (randomly shuffled)
+                const shuffled = [...tradesEnteringToday].sort(() => Math.random() - 0.5);
+                shuffled.forEach(trade => {
+                    openPositions[trade.strategyId].push(trade);
+                    if (trade.portfolioId) {
+                        portfolioOpenPositions[trade.portfolioId] = (portfolioOpenPositions[trade.portfolioId] || 0) + 1;
                     }
                 });
 
-                // Apply portfolio-level constraints and randomly select trades
-                const remainingDailySlots = settings.maxTradesPerDay - dailyTrades[dateTime];
-                const shuffled = [...tradesToday].sort(() => Math.random() - 0.5);
-                const selectedTrades = shuffled.slice(0, Math.min(remainingDailySlots, tradesToday.length));
-
-                // Process selected trades with simple multiplier and compounding
-                // Formula: Scaled PNL = original_PNL * multiplier * (current_balance / starting_balance)
-                // This compounds because currentBalance grows with each trade
-                selectedTrades.forEach(trade => {
-                    // Simple approach: multiply by user's multiplier, then scale by balance ratio for compounding
-                    const balanceRatio = currentBalance / settings.startingBalance;
-                    // Get multiplier directly from the strategy object (ensure we have the latest value)
-                    const multiplier = trade.strategy.multiplier || 1.0;
-                    scaledPnL = trade.pnl * multiplier * balanceRatio;
+                // STEP 2: Now close positions that exit on this date (after opening)
+                // This ensures same-day trades can be opened and then closed in the same iteration
+                const tradesExitingToday = [];
+                strategyTrades.forEach(st => {
+                    const portfolioId = st.parentPortfolio ? st.parentPortfolio.id : null;
+                    const exitingTrades = st.trades.filter(t => t.exitDate.getTime() === dateTime);
                     
-                    // Debug logging for first few trades to verify multiplier
-                    if (executedTrades.length < 3) {
-                        console.log(`Trade ${executedTrades.length + 1}: Strategy=${trade.strategy.name}, Original PnL=${trade.pnl.toFixed(2)}, Multiplier=${multiplier}, BalanceRatio=${balanceRatio.toFixed(4)}, Scaled=${scaledPnL.toFixed(2)}`);
+                    exitingTrades.forEach(trade => {
+                        // Check if this trade is currently open
+                        const openIndex = openPositions[st.id].findIndex(ot => 
+                            ot.entryDate.getTime() === trade.entryDate.getTime() &&
+                            ot.exitDate.getTime() === trade.exitDate.getTime() &&
+                            (ot.symbol === trade.symbol || (!ot.symbol && !trade.symbol))
+                        );
+                        if (openIndex >= 0) {
+                            // Close this position
+                            const closedTrade = openPositions[st.id][openIndex];
+                            openPositions[st.id].splice(openIndex, 1);
+                            
+                            // Update portfolio open positions count
+                            if (portfolioId) {
+                                portfolioOpenPositions[portfolioId] = Math.max(0, portfolioOpenPositions[portfolioId] - 1);
+                            }
+                            
+                            tradesExitingToday.push({
+                                ...closedTrade,
+                                strategyId: st.id,
+                                strategy: st,
+                                portfolioId: portfolioId
+                            });
+                        }
+                    });
+                });
+
+                // Apply daily limits to exits - limit how many trades can close today
+                const shuffledExits = [...tradesExitingToday].sort(() => Math.random() - 0.5);
+                const allowedExits = [];
+                
+                shuffledExits.forEach(trade => {
+                    // Check strategy limit
+                    if (currentStrategyCounts[trade.strategyId] >= trade.strategy.maxTradesPerDay) {
+                        return; // Skip this trade - limit reached
                     }
                     
-                    const balanceBefore = currentBalance;
+                    // Check portfolio limit
+                    if (trade.portfolioId) {
+                        const portfolio = portfolioConstraints[trade.portfolioId];
+                        if (currentPortfolioCounts[trade.portfolioId] >= portfolio.maxTradesPerDay) {
+                            return; // Skip this trade - limit reached
+                        }
+                    }
+                    
+                    // Check top-level limit
+                    if (currentDayCount + allowedExits.length >= settings.maxTradesPerDay) {
+                        return; // Skip this trade - limit reached
+                    }
+                    
+                    // Can exit this trade
+                    allowedExits.push(trade);
+                    currentStrategyCounts[trade.strategyId] = (currentStrategyCounts[trade.strategyId] || 0) + 1;
+                    if (trade.portfolioId) {
+                        currentPortfolioCounts[trade.portfolioId] = (currentPortfolioCounts[trade.portfolioId] || 0) + 1;
+                    }
+                });
+
+                // Process exiting trades (apply PnL) - only the ones that passed the daily limit check
+                allowedExits.forEach(trade => {
+                    const balanceRatio = currentBalance / settings.startingBalance;
+                    const multiplier = trade.strategy.multiplier || 1.0;
+                    const scaledPnL = trade.pnl * multiplier * balanceRatio;
+                    
                     currentBalance += scaledPnL;
                     
-                    // Prevent balance from going negative
                     if (currentBalance < 0) {
                         console.warn(`Balance went negative: ${currentBalance.toFixed(2)}, resetting to 0`);
                         currentBalance = 0;
@@ -1316,8 +1857,8 @@
                     
                     // Track trade for table
                     executedTrades.push({
-                        entryDate: date, // Since we only have exit dates, use exit date as entry
-                        exitDate: date,
+                        entryDate: trade.entryDate,
+                        exitDate: trade.exitDate,
                         strategy: trade.strategy.name,
                         symbol: trade.symbol,
                         originalPnL: trade.pnl,
@@ -1325,11 +1866,15 @@
                         balance: currentBalance
                     });
                     
-                    if (selectedTrades.length > 0 && dates.length < 10) {
-                        console.log(`Date: ${new Date(dateTime).toLocaleDateString()}, Strategy: ${trade.strategy.name}, Original PnL: ${trade.pnl.toFixed(2)}, Scaled PnL: ${scaledPnL.toFixed(2)}, Balance: ${currentBalance.toFixed(2)}, Peak: ${peak.toFixed(2)}`);
+                    // Update counters - count when trade closes (this is when PnL is realized)
+                    dailyTrades[dateTime] = (dailyTrades[dateTime] || 0) + 1;
+                    if (trade.portfolioId) {
+                        if (!portfolioDailyCounts[trade.portfolioId][dateTime]) {
+                            portfolioDailyCounts[trade.portfolioId][dateTime] = 0;
+                        }
+                        portfolioDailyCounts[trade.portfolioId][dateTime]++;
                     }
                     
-                    dailyTrades[dateTime]++;
                     if (!strategyDailyCounts[trade.strategyId][dateTime]) {
                         strategyDailyCounts[trade.strategyId][dateTime] = 0;
                     }
@@ -1547,7 +2092,8 @@
             strategyTrades.forEach(st => {
                 const daily = {};
                 st.trades.forEach(trade => {
-                    const dateKey = trade.date.getTime();
+                    // Use exit date for correlation (when PnL is realized)
+                    const dateKey = trade.exitDate.getTime();
                     if (!daily[dateKey]) {
                         daily[dateKey] = 0;
                     }
@@ -1727,9 +2273,11 @@
 
         function displayTradesTable(trades) {
             const container = document.getElementById('trades-table-container');
+            const downloadBtn = document.getElementById('download-trades-btn');
             
             if (trades.length === 0) {
                 container.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No trades executed</p>';
+                if (downloadBtn) downloadBtn.style.display = 'none';
                 return;
             }
 
@@ -1737,7 +2285,62 @@
             allTrades = trades;
             currentTradesPage = 0;
             
+            // Show download button
+            if (downloadBtn) downloadBtn.style.display = 'block';
+            
             renderTradesPage();
+        }
+
+        function downloadTradesExcel() {
+            if (!allTrades || allTrades.length === 0) {
+                alert('No trades to download');
+                return;
+            }
+
+            // Prepare data for Excel
+            const excelData = allTrades.map(trade => {
+                const entryDate = trade.entryDate instanceof Date ? trade.entryDate : new Date(trade.entryDate);
+                const exitDate = trade.exitDate instanceof Date ? trade.exitDate : new Date(trade.exitDate);
+                
+                return {
+                    'Entry Date': entryDate.toLocaleDateString(),
+                    'Entry DateTime': entryDate.toISOString(),
+                    'Exit Date': exitDate.toLocaleDateString(),
+                    'Exit DateTime': exitDate.toISOString(),
+                    'Strategy': trade.strategy || '',
+                    'Symbol': trade.symbol || '',
+                    'Original PnL': trade.originalPnL || 0,
+                    'Adjusted PnL': trade.adjustedPnL || 0,
+                    'Balance': trade.balance || 0
+                };
+            });
+
+            // Create workbook and worksheet
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            
+            // Set column widths
+            const colWidths = [
+                { wch: 12 }, // Entry Date
+                { wch: 20 }, // Entry DateTime
+                { wch: 12 }, // Exit Date
+                { wch: 20 }, // Exit DateTime
+                { wch: 15 }, // Strategy
+                { wch: 10 }, // Symbol
+                { wch: 15 }, // Original PnL
+                { wch: 15 }, // Adjusted PnL
+                { wch: 15 }  // Balance
+            ];
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Executed Trades');
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const filename = `executed_trades_${timestamp}.xlsx`;
+
+            // Download
+            XLSX.writeFile(wb, filename);
         }
 
         function renderTradesPage() {
@@ -1787,6 +2390,9 @@
                     </tbody>
                 </table>
                 <div class="trades-pagination">
+                    <button class="pagination-btn" onclick="firstTradesPage()" ${currentTradesPage === 0 ? 'disabled' : ''} title="First page">
+                        &lt;&lt;
+                    </button>
                     <button class="pagination-btn" onclick="previousTradesPage()" ${currentTradesPage === 0 ? 'disabled' : ''}>
                         ← Previous
                     </button>
@@ -1796,10 +2402,18 @@
                     <button class="pagination-btn" onclick="nextTradesPage()" ${currentTradesPage >= totalPages - 1 ? 'disabled' : ''}>
                         Next →
                     </button>
+                    <button class="pagination-btn" onclick="lastTradesPage()" ${currentTradesPage >= totalPages - 1 ? 'disabled' : ''} title="Last page">
+                        &gt;&gt;
+                    </button>
                 </div>
             `;
 
             container.innerHTML = tableHTML;
+        }
+
+        function firstTradesPage() {
+            currentTradesPage = 0;
+            renderTradesPage();
         }
 
         function previousTradesPage() {
@@ -1816,6 +2430,13 @@
                 currentTradesPage++;
                 renderTradesPage();
             }
+        }
+
+        function lastTradesPage() {
+            const pageSize = 10;
+            const totalPages = Math.ceil(allTrades.length / pageSize);
+            currentTradesPage = totalPages - 1;
+            renderTradesPage();
         }
 
         function toggleChart(type, mode) {
