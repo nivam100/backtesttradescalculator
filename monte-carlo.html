@@ -7,7 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script id="chart-js-script" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" 
+            onerror="var s=document.createElement('script');s.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js';s.onload=function(){window._chartJsFallbackLoaded=true;};document.head.appendChild(s);"></script>
     <style>
         * {
             margin: 0;
@@ -993,6 +994,11 @@
         }
 
         function runSimulation() {
+            if (typeof Chart === 'undefined') {
+                alert('Chart library could not be loaded (possible network issue). Please check your internet connection and refresh the page.');
+                return;
+            }
+            
             const winrate = parseFloat(document.getElementById('mc-winrate').value);
             const rr = parseFloat(document.getElementById('mc-rr').value);
             const numTrades = parseInt(document.getElementById('mc-trades').value);
