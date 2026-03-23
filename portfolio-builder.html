@@ -876,6 +876,7 @@
                         file: file,
                         workbook: workbook,
                         multiplier: 1.0,
+                        originalBalance: parseFloat(document.getElementById('starting-balance').value) || 10000,
                         maxTradesPerDay: 5,
                         maxTradesParallel: 2,
                         parentPortfolioId: parentPortfolioId
@@ -975,6 +976,14 @@
                                    placeholder="1.0" title="PnL multiplier: if PnL is $100 and multiplier is 2x, scaled PnL = $200">
                         </div>
                         <div class="strategy-input-group">
+                            <label>Orig Balance</label>
+                                <input type="number" min="1" step="1000" value="${item.originalBalance || 10000}" 
+                                       onchange="updateItem(${item.id}, 'originalBalance', this.value)" 
+                                       onblur="updateItem(${item.id}, 'originalBalance', this.value)"
+                                       oninput="updateItem(${item.id}, 'originalBalance', this.value)"
+                                   placeholder="10000" title="Account size the backtest was run on. PnL scales by (Portfolio Balance / Orig Balance).">
+                        </div>
+                        <div class="strategy-input-group">
                             <label>Max Trades Per Day</label>
                                 <input type="number" min="1" step="1" value="${item.maxTradesPerDay}" 
                                        onchange="updateItem(${item.id}, 'maxTradesPerDay', this.value)">
@@ -1059,6 +1068,9 @@
                 } else if (field === 'multiplier') {
                         item[field] = 1.0;
                         console.warn(`Invalid multiplier for ${item.name}, reset to 1.0`);
+                } else if (field === 'originalBalance') {
+                        item[field] = 10000;
+                        console.warn(`Invalid originalBalance for ${item.name}, reset to 10000`);
                     }
                 }
             }
@@ -1483,6 +1495,7 @@
                             id: s.id,
                             name: s.name,
                             multiplier: s.multiplier || 1.0,
+                            originalBalance: s.originalBalance || 10000,
                             maxTradesPerDay: s.maxTradesPerDay,
                             maxTradesParallel: s.maxTradesParallel,
                             parentPortfolio: s.parentPortfolio,
@@ -1612,9 +1625,10 @@
             const dates = [];
             let currentBalance = settings.startingBalance;
             let peak = settings.startingBalance;
-            // Dashboard-style compounding: origBefore = startBal + sum of raw PnLs so far (strategy-dashboard-metrics.md)
-            let origBefore = settings.startingBalance;
-            // Balance after each executed trade (for CAGR / max DD per doc — trade-close points only)
+            // Per-strategy origBefore (dashboard-style compounding, strategy-dashboard-metrics.md).
+            // Each strategy tracks its own "raw" account independently so multi-strategy
+            // portfolios compound correctly without the shared denominator flattening returns.
+            const origBeforeByStrategy = {};
             const tradeBalances = [settings.startingBalance];
             const dailyTrades = {}; // Top-level daily trade counts
             const portfolioDailyCounts = {}; // Track daily counts per portfolio
@@ -1713,6 +1727,7 @@
             strategyTrades.forEach(st => {
                 strategyDailyCounts[st.id] = {};
                 openPositions[st.id] = [];
+                origBeforeByStrategy[st.id] = st.originalBalance || settings.startingBalance;
                 if (st.parentPortfolio) {
                     const portfolioId = st.parentPortfolio.id;
                     if (!portfolioOpenPositions[portfolioId]) {
@@ -1878,15 +1893,16 @@
                 });
 
                 // Process exiting trades (apply PnL) - only the ones that passed the daily limit check
-                // Compounding: dp = riskMult * p * (B / max(origBefore, ε)); B += dp; origBefore += p (strategy-dashboard-metrics.md)
+                // Compounding per strategy-dashboard-metrics.md, with per-strategy origBefore
+                // so multi-strategy portfolios don't flatten the scaling ratio.
                 allowedExits.forEach(trade => {
                     const m = trade.strategy.multiplier || 1.0;
                     const p = trade.pnl;
-                    const den = Math.max(origBefore, 1e-12);
+                    const den = Math.max(origBeforeByStrategy[trade.strategyId], 1e-12);
                     const dp = m * p * (currentBalance / den);
                     
                     currentBalance += dp;
-                    origBefore += p;
+                    origBeforeByStrategy[trade.strategyId] += p;
                     
                     if (currentBalance < 0) {
                         console.warn(`Balance went negative: ${currentBalance.toFixed(2)}, resetting to 0`);
