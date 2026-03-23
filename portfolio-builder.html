@@ -1582,6 +1582,27 @@
             return simulatePortfolio(strategyTrades, topLevelSettings, portfolioConstraints);
         }
 
+        /** CAGR years per strategy-dashboard-metrics.md (engine style): floor calendar days / 365.25, min 0.01 */
+        function cagrYearsEngineStyle(minEntryMs, maxExitMs) {
+            if (minEntryMs == null || maxExitMs == null || maxExitMs < minEntryMs) return null;
+            const days = Math.floor((maxExitMs - minEntryMs) / 86400000);
+            return Math.max(days / 365.25, 0.01);
+        }
+
+        /** Max drawdown % on balance path at trade closes — strategy-dashboard-metrics.md */
+        function maxDrawdownPctFromBalances(balances) {
+            if (!balances || balances.length === 0) return 0;
+            let peak = balances[0];
+            let maxDD = 0;
+            for (const v of balances) {
+                peak = Math.max(peak, v);
+                if (peak > 1e-9) {
+                    maxDD = Math.max(maxDD, ((peak - v) / peak) * 100);
+                }
+            }
+            return maxDD;
+        }
+
         function simulatePortfolio(strategyTrades, settings, portfolioConstraints = {}) {
             // Since Excel files contain exit dates and PnL, we treat each trade as closing on its exit date
             // The PnL is already the final result, we just need to scale it by risk %
@@ -1591,6 +1612,10 @@
             const dates = [];
             let currentBalance = settings.startingBalance;
             let peak = settings.startingBalance;
+            // Dashboard-style compounding: origBefore = startBal + sum of raw PnLs so far (strategy-dashboard-metrics.md)
+            let origBefore = settings.startingBalance;
+            // Balance after each executed trade (for CAGR / max DD per doc — trade-close points only)
+            const tradeBalances = [settings.startingBalance];
             const dailyTrades = {}; // Top-level daily trade counts
             const portfolioDailyCounts = {}; // Track daily counts per portfolio
             const strategyDailyCounts = {}; // Track daily counts per strategy
@@ -1668,6 +1693,18 @@
             console.log(`Strategies: ${strategyTrades.length}`);
             strategyTrades.forEach(st => {
                 console.log(`Strategy ${st.name}: ${st.trades.length} trades`);
+            });
+
+            // Trade span for CAGR years (engine style): min entry / max exit over all filtered trades
+            let minEntryMsForCagr = null;
+            let maxExitMsForCagr = null;
+            strategyTrades.forEach(st => {
+                (st.trades || []).forEach(t => {
+                    const e = t.entryDate.getTime();
+                    const x = t.exitDate.getTime();
+                    minEntryMsForCagr = minEntryMsForCagr === null ? e : Math.min(minEntryMsForCagr, e);
+                    maxExitMsForCagr = maxExitMsForCagr === null ? x : Math.max(maxExitMsForCagr, x);
+                });
             });
 
             // Initialize daily counts and open position tracking for all strategies
@@ -1841,12 +1878,15 @@
                 });
 
                 // Process exiting trades (apply PnL) - only the ones that passed the daily limit check
+                // Compounding: dp = riskMult * p * (B / max(origBefore, ε)); B += dp; origBefore += p (strategy-dashboard-metrics.md)
                 allowedExits.forEach(trade => {
-                    const balanceRatio = currentBalance / settings.startingBalance;
-                    const multiplier = trade.strategy.multiplier || 1.0;
-                    const scaledPnL = trade.pnl * multiplier * balanceRatio;
+                    const m = trade.strategy.multiplier || 1.0;
+                    const p = trade.pnl;
+                    const den = Math.max(origBefore, 1e-12);
+                    const dp = m * p * (currentBalance / den);
                     
-                    currentBalance += scaledPnL;
+                    currentBalance += dp;
+                    origBefore += p;
                     
                     if (currentBalance < 0) {
                         console.warn(`Balance went negative: ${currentBalance.toFixed(2)}, resetting to 0`);
@@ -1855,6 +1895,8 @@
                     
                     if (currentBalance > peak) peak = currentBalance;
                     
+                    tradeBalances.push(currentBalance);
+                    
                     // Track trade for table
                     executedTrades.push({
                         entryDate: trade.entryDate,
@@ -1862,7 +1904,7 @@
                         strategy: trade.strategy.name,
                         symbol: trade.symbol,
                         originalPnL: trade.pnl,
-                        adjustedPnL: scaledPnL,
+                        adjustedPnL: dp,
                         balance: currentBalance
                     });
                     
@@ -1886,18 +1928,25 @@
                 drawdown.push(currentDD);
             });
 
-            // Calculate CAGR
+            // CAGR: (end/start)^(1/years)-1; years = engine-style from trade span (strategy-dashboard-metrics.md)
             let cagr = 0;
-            if (dates.length > 1) {
+            let yearsCagr = cagrYearsEngineStyle(minEntryMsForCagr, maxExitMsForCagr);
+            if (yearsCagr == null && dates.length > 1) {
                 const firstDate = dates[0];
                 const lastDate = dates[dates.length - 1];
-                const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
-                const years = daysDiff / 365.25;
-                
-                if (years > 0 && currentBalance > 0 && settings.startingBalance > 0) {
-                    cagr = (Math.pow(currentBalance / settings.startingBalance, 1 / years) - 1) * 100;
-                }
+                yearsCagr = Math.max((lastDate - firstDate) / (365.25 * 86400000), 0.01);
             }
+            if (yearsCagr == null) {
+                yearsCagr = 0.01;
+            }
+            const startBal = tradeBalances[0];
+            const endBal = tradeBalances[tradeBalances.length - 1];
+            if (yearsCagr > 0 && startBal > 0 && endBal > 0 && isFinite(endBal / startBal)) {
+                cagr = (Math.pow(endBal / startBal, 1 / yearsCagr) - 1) * 100;
+            }
+
+            // Max drawdown: running peak on trade-close balance path only (not daily samples)
+            const maxDrawdown = maxDrawdownPctFromBalances(tradeBalances);
 
             return {
                 dates,
@@ -1906,10 +1955,12 @@
                 finalBalance: currentBalance,
                 startingBalance: settings.startingBalance,
                 totalReturn: ((currentBalance - settings.startingBalance) / settings.startingBalance) * 100,
-                maxDrawdown: Math.max(...drawdown) * 100,
+                maxDrawdown,
                 peak,
                 cagr,
-                executedTrades
+                executedTrades,
+                tradeBalances,
+                cagrYears: yearsCagr
             };
         }
 
