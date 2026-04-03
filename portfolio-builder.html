@@ -876,7 +876,6 @@
                         file: file,
                         workbook: workbook,
                         multiplier: 1.0,
-                        originalBalance: parseFloat(document.getElementById('starting-balance').value) || 10000,
                         maxTradesPerDay: 5,
                         maxTradesParallel: 2,
                         parentPortfolioId: parentPortfolioId
@@ -976,22 +975,16 @@
                                    placeholder="1.0" title="PnL multiplier: if PnL is $100 and multiplier is 2x, scaled PnL = $200">
                         </div>
                         <div class="strategy-input-group">
-                            <label>Orig Balance</label>
-                                <input type="number" min="1" step="1000" value="${item.originalBalance || 10000}" 
-                                       onchange="updateItem(${item.id}, 'originalBalance', this.value)" 
-                                       onblur="updateItem(${item.id}, 'originalBalance', this.value)"
-                                       oninput="updateItem(${item.id}, 'originalBalance', this.value)"
-                                   placeholder="10000" title="Account size the backtest was run on. PnL scales by (Portfolio Balance / Orig Balance).">
-                        </div>
-                        <div class="strategy-input-group">
                             <label>Max Trades Per Day</label>
                                 <input type="number" min="1" step="1" value="${item.maxTradesPerDay}" 
-                                       onchange="updateItem(${item.id}, 'maxTradesPerDay', this.value)">
+                                       onchange="updateItem(${item.id}, 'maxTradesPerDay', this.value)"
+                                       oninput="updateItem(${item.id}, 'maxTradesPerDay', this.value)">
                         </div>
                         <div class="strategy-input-group">
                             <label>Max Trades Parallel</label>
                                 <input type="number" min="1" step="1" value="${item.maxTradesParallel}" 
-                                       onchange="updateItem(${item.id}, 'maxTradesParallel', this.value)">
+                                       onchange="updateItem(${item.id}, 'maxTradesParallel', this.value)"
+                                       oninput="updateItem(${item.id}, 'maxTradesParallel', this.value)">
                         </div>
                     </div>
                 `;
@@ -1023,12 +1016,14 @@
                                 <label>Max Trades Per Day</label>
                                 <input type="number" min="1" step="1" value="${item.maxTradesPerDay}" 
                                        onchange="updateItem(${item.id}, 'maxTradesPerDay', this.value)"
+                                       oninput="updateItem(${item.id}, 'maxTradesPerDay', this.value)"
                                        style="width: 100%; padding: 8px 12px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 14px;">
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label>Max Trades Parallel</label>
                                 <input type="number" min="1" step="1" value="${item.maxTradesParallel}" 
                                        onchange="updateItem(${item.id}, 'maxTradesParallel', this.value)"
+                                       oninput="updateItem(${item.id}, 'maxTradesParallel', this.value)"
                                        style="width: 100%; padding: 8px 12px; border: 1px solid #d1d1d1; border-radius: 6px; font-size: 14px;">
                             </div>
                         </div>
@@ -1068,9 +1063,6 @@
                 } else if (field === 'multiplier') {
                         item[field] = 1.0;
                         console.warn(`Invalid multiplier for ${item.name}, reset to 1.0`);
-                } else if (field === 'originalBalance') {
-                        item[field] = 10000;
-                        console.warn(`Invalid originalBalance for ${item.name}, reset to 10000`);
                     }
                 }
             }
@@ -1495,7 +1487,6 @@
                             id: s.id,
                             name: s.name,
                             multiplier: s.multiplier || 1.0,
-                            originalBalance: s.originalBalance || 10000,
                             maxTradesPerDay: s.maxTradesPerDay,
                             maxTradesParallel: s.maxTradesParallel,
                             parentPortfolio: s.parentPortfolio,
@@ -1536,10 +1527,10 @@
                         });
                     }
                     
-                    // Debug: Log multipliers being used
-                    console.log('Strategy multipliers at simulation start:');
+                    // Debug: Log all strategy settings
+                    console.log('Strategy settings at simulation start:');
                     strategyTrades.forEach(st => {
-                        console.log(`  ${st.name}: ${st.multiplier}`);
+                        console.log(`  ${st.name}: multiplier=${st.multiplier}, maxTradesPerDay=${st.maxTradesPerDay}, maxTradesParallel=${st.maxTradesParallel}, trades=${st.trades.length}`);
                     });
 
                     // Calculate total number of trades (rows in all Excel sheets) after filtering
@@ -1625,20 +1616,17 @@
             const dates = [];
             let currentBalance = settings.startingBalance;
             let peak = settings.startingBalance;
-            // Per-strategy origBefore (dashboard-style compounding, strategy-dashboard-metrics.md).
-            // Each strategy tracks its own "raw" account independently so multi-strategy
-            // portfolios compound correctly without the shared denominator flattening returns.
-            const origBeforeByStrategy = {};
             const tradeBalances = [settings.startingBalance];
-            const dailyTrades = {}; // Top-level daily trade counts
-            const portfolioDailyCounts = {}; // Track daily counts per portfolio
-            const strategyDailyCounts = {}; // Track daily counts per strategy
-            const executedTrades = []; // Track all executed trades for the table
+            const dailyEntries = {}; // Top-level entries per calendar day
+            const strategyDailyEntries = {}; // Entries per calendar day per strategy
+            const portfolioDailyEntries = {}; // Entries per calendar day per portfolio
+            const executedTrades = [];
 
-            // Initialize portfolio daily counts
-            Object.keys(portfolioConstraints).forEach(portfolioId => {
-                portfolioDailyCounts[portfolioId] = {};
-            });
+            // Convert timestamp to calendar-date key for daily limit tracking
+            function dayKey(ms) {
+                const d = new Date(ms);
+                return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+            }
 
             // Find the common date range (intersection) across all strategies
             let commonMinDate = null;
@@ -1725,9 +1713,7 @@
             const openPositions = {}; // Track open positions per strategy: { strategyId: [trade1, trade2, ...] }
             const portfolioOpenPositions = {}; // Track open positions per portfolio: { portfolioId: count }
             strategyTrades.forEach(st => {
-                strategyDailyCounts[st.id] = {};
                 openPositions[st.id] = [];
-                origBeforeByStrategy[st.id] = st.originalBalance || settings.startingBalance;
                 if (st.parentPortfolio) {
                     const portfolioId = st.parentPortfolio.id;
                     if (!portfolioOpenPositions[portfolioId]) {
@@ -1736,122 +1722,122 @@
                 }
             });
 
+            let rejectedByStratParallel = 0, rejectedByPortParallel = 0, rejectedByTopParallel = 0;
+            let rejectedByStratDaily = 0, rejectedByPortDaily = 0, rejectedByTopDaily = 0;
+
             sortedDates.forEach(dateTime => {
                 const date = new Date(dateTime);
                 dates.push(date);
-                
-                // Initialize daily trade count for this date
-                if (!dailyTrades[dateTime]) {
-                    dailyTrades[dateTime] = 0;
-                }
 
-                // Get current daily counts for limit checking
-                const currentDayCount = dailyTrades[dateTime] || 0;
-                const currentStrategyCounts = {};
-                const currentPortfolioCounts = {};
-                
-                // Count already-executed trades today
+                // Daily limit counters keyed by calendar date (not timestamp)
+                const dk = dayKey(dateTime);
+                const strategyEntryCount = {};
                 strategyTrades.forEach(st => {
-                    currentStrategyCounts[st.id] = strategyDailyCounts[st.id][dateTime] || 0;
+                    strategyEntryCount[st.id] = strategyDailyEntries[st.id] ? (strategyDailyEntries[st.id][dk] || 0) : 0;
                 });
+                const portfolioEntryCount = {};
                 Object.keys(portfolioConstraints).forEach(pid => {
-                    currentPortfolioCounts[pid] = portfolioDailyCounts[pid][dateTime] || 0;
+                    portfolioEntryCount[pid] = portfolioDailyEntries[pid] ? (portfolioDailyEntries[pid][dk] || 0) : 0;
                 });
 
-                // STEP 1: First, open new positions that enter on this date
-                // (We need to open before closing so same-day trades can be opened and then closed)
-                const tradesEnteringToday = [];
+                // STEP 1: Collect candidate entries, enforce all limits incrementally after shuffle.
+                // maxTradesPerDay limits how many NEW trades a strategy/portfolio/top-level can ENTER per day.
+                const candidateEntries = [];
                 strategyTrades.forEach(st => {
                     const portfolioId = st.parentPortfolio ? st.parentPortfolio.id : null;
-                    const portfolio = portfolioId ? portfolioConstraints[portfolioId] : null;
-                    
-                    // Get trades that want to enter today
-                    const availableTrades = st.trades.filter(t => t.entryDate.getTime() === dateTime);
-                    
-                    availableTrades.forEach(trade => {
-                        // Check parallel position limits
-                        const currentOpenCount = openPositions[st.id].length;
-                        if (currentOpenCount >= st.maxTradesParallel) {
-                            return; // Strategy has reached its parallel limit
-                        }
-                        
-                        if (portfolio) {
-                            const portfolioOpenCount = portfolioOpenPositions[portfolioId] || 0;
-                            if (portfolioOpenCount >= portfolio.maxTradesParallel) {
-                                return; // Portfolio has reached its parallel limit
-                            }
-                        }
-                        
-                        const totalOpenPositions = Object.values(openPositions).reduce((sum, positions) => sum + positions.length, 0);
-                        if (totalOpenPositions >= settings.maxOpenPositions) {
-                            return; // Top-level has reached its parallel limit
-                        }
-                        
-                        // Check daily limits - if this is a same-day trade, check if we can still execute today
-                        const isSameDay = trade.entryDate.getTime() === trade.exitDate.getTime();
-                        if (isSameDay) {
-                            // This trade will close today, so check daily limits
-                            const strategyCount = currentStrategyCounts[st.id] || 0;
-                            if (strategyCount >= st.maxTradesPerDay) {
-                                return; // Strategy daily limit reached
-                            }
-                            
-                            if (portfolio) {
-                                const portfolioCount = currentPortfolioCounts[portfolioId] || 0;
-                                if (portfolioCount >= portfolio.maxTradesPerDay) {
-                                    return; // Portfolio daily limit reached
-                                }
-                            }
-                            
-                            if (currentDayCount >= settings.maxTradesPerDay) {
-                                return; // Top-level daily limit reached
-                            }
-                        }
-                        
-                        // All checks passed - can open this position
-                        tradesEnteringToday.push({
-                                    ...trade,
-                                    strategyId: st.id,
+                    st.trades.filter(t => t.entryDate.getTime() === dateTime).forEach(trade => {
+                        candidateEntries.push({
+                            ...trade,
+                            strategyId: st.id,
                             strategy: st,
                             portfolioId: portfolioId
-                                });
-                            });
-                });
-                
-                // Open positions (randomly shuffled)
-                const shuffled = [...tradesEnteringToday].sort(() => Math.random() - 0.5);
-                shuffled.forEach(trade => {
-                    openPositions[trade.strategyId].push(trade);
-                    if (trade.portfolioId) {
-                        portfolioOpenPositions[trade.portfolioId] = (portfolioOpenPositions[trade.portfolioId] || 0) + 1;
-                    }
+                        });
+                    });
                 });
 
-                // STEP 2: Now close positions that exit on this date (after opening)
-                // This ensures same-day trades can be opened and then closed in the same iteration
-                const tradesExitingToday = [];
+                const shuffled = [...candidateEntries].sort(() => Math.random() - 0.5);
+                shuffled.forEach(trade => {
+                    const st = trade.strategy;
+                    const portfolioId = trade.portfolioId;
+                    const portfolio = portfolioId ? portfolioConstraints[portfolioId] : null;
+
+                    // Strategy parallel limit
+                    if (openPositions[trade.strategyId].length >= st.maxTradesParallel) {
+                        rejectedByStratParallel++;
+                        return;
+                    }
+
+                    // Portfolio parallel limit
+                    if (portfolio) {
+                        if ((portfolioOpenPositions[portfolioId] || 0) >= portfolio.maxTradesParallel) {
+                            rejectedByPortParallel++;
+                            return;
+                        }
+                    }
+
+                    // Top-level parallel limit
+                    const totalOpen = Object.values(openPositions).reduce((s, p) => s + p.length, 0);
+                    if (totalOpen >= settings.maxOpenPositions) {
+                        rejectedByTopParallel++;
+                        return;
+                    }
+
+                    // Strategy daily entry limit
+                    if ((strategyEntryCount[trade.strategyId] || 0) >= st.maxTradesPerDay) {
+                        rejectedByStratDaily++;
+                        return;
+                    }
+
+                    // Portfolio daily entry limit
+                    if (portfolio && (portfolioEntryCount[portfolioId] || 0) >= portfolio.maxTradesPerDay) {
+                        rejectedByPortDaily++;
+                        return;
+                    }
+
+                    // Top-level daily entry limit
+                    if ((dailyEntries[dk] || 0) >= settings.maxTradesPerDay) {
+                        rejectedByTopDaily++;
+                        return;
+                    }
+
+                    // All checks passed — open position and update daily entry counts
+                    openPositions[trade.strategyId].push(trade);
+                    if (portfolioId) {
+                        portfolioOpenPositions[portfolioId] = (portfolioOpenPositions[portfolioId] || 0) + 1;
+                    }
+                    strategyEntryCount[trade.strategyId] = (strategyEntryCount[trade.strategyId] || 0) + 1;
+                    if (!strategyDailyEntries[trade.strategyId]) strategyDailyEntries[trade.strategyId] = {};
+                    strategyDailyEntries[trade.strategyId][dk] = strategyEntryCount[trade.strategyId];
+                    if (portfolioId) {
+                        portfolioEntryCount[portfolioId] = (portfolioEntryCount[portfolioId] || 0) + 1;
+                        if (!portfolioDailyEntries[portfolioId]) portfolioDailyEntries[portfolioId] = {};
+                        portfolioDailyEntries[portfolioId][dk] = portfolioEntryCount[portfolioId];
+                    }
+                    dailyEntries[dk] = (dailyEntries[dk] || 0) + 1;
+                });
+
+                // STEP 2: Close all positions that exit on this date — unconditional.
+                // Once a trade is open it must close on its exit date (can't hold past it).
+                const allowedExits = [];
                 strategyTrades.forEach(st => {
                     const portfolioId = st.parentPortfolio ? st.parentPortfolio.id : null;
                     const exitingTrades = st.trades.filter(t => t.exitDate.getTime() === dateTime);
                     
                     exitingTrades.forEach(trade => {
-                        // Check if this trade is currently open
                         const openIndex = openPositions[st.id].findIndex(ot => 
                             ot.entryDate.getTime() === trade.entryDate.getTime() &&
                             ot.exitDate.getTime() === trade.exitDate.getTime() &&
                             (ot.symbol === trade.symbol || (!ot.symbol && !trade.symbol))
                         );
                         if (openIndex >= 0) {
-                            // Close this position
                             const closedTrade = openPositions[st.id][openIndex];
                             openPositions[st.id].splice(openIndex, 1);
                             
-                            // Update portfolio open positions count
                             if (portfolioId) {
                                 portfolioOpenPositions[portfolioId] = Math.max(0, portfolioOpenPositions[portfolioId] - 1);
                             }
                             
-                            tradesExitingToday.push({
+                            allowedExits.push({
                                 ...closedTrade,
                                 strategyId: st.id,
                                 strategy: st,
@@ -1861,48 +1847,13 @@
                     });
                 });
 
-                // Apply daily limits to exits - limit how many trades can close today
-                const shuffledExits = [...tradesExitingToday].sort(() => Math.random() - 0.5);
-                const allowedExits = [];
-                
-                shuffledExits.forEach(trade => {
-                    // Check strategy limit
-                    if (currentStrategyCounts[trade.strategyId] >= trade.strategy.maxTradesPerDay) {
-                        return; // Skip this trade - limit reached
-                    }
-                    
-                    // Check portfolio limit
-                    if (trade.portfolioId) {
-                        const portfolio = portfolioConstraints[trade.portfolioId];
-                        if (currentPortfolioCounts[trade.portfolioId] >= portfolio.maxTradesPerDay) {
-                            return; // Skip this trade - limit reached
-                        }
-                    }
-                    
-                    // Check top-level limit
-                    if (currentDayCount + allowedExits.length >= settings.maxTradesPerDay) {
-                        return; // Skip this trade - limit reached
-                    }
-                    
-                    // Can exit this trade
-                    allowedExits.push(trade);
-                    currentStrategyCounts[trade.strategyId] = (currentStrategyCounts[trade.strategyId] || 0) + 1;
-                    if (trade.portfolioId) {
-                        currentPortfolioCounts[trade.portfolioId] = (currentPortfolioCounts[trade.portfolioId] || 0) + 1;
-                    }
-                });
-
-                // Process exiting trades (apply PnL) - only the ones that passed the daily limit check
-                // Compounding per strategy-dashboard-metrics.md, with per-strategy origBefore
-                // so multi-strategy portfolios don't flatten the scaling ratio.
+                // Process exiting trades: scale raw PnL by multiplier and (currentBalance / origBalance)
+                // This compounds naturally — same risk % applied to the growing balance.
                 allowedExits.forEach(trade => {
                     const m = trade.strategy.multiplier || 1.0;
-                    const p = trade.pnl;
-                    const den = Math.max(origBeforeByStrategy[trade.strategyId], 1e-12);
-                    const dp = m * p * (currentBalance / den);
+                    const dp = m * trade.pnl * (currentBalance / settings.startingBalance);
                     
                     currentBalance += dp;
-                    origBeforeByStrategy[trade.strategyId] += p;
                     
                     if (currentBalance < 0) {
                         console.warn(`Balance went negative: ${currentBalance.toFixed(2)}, resetting to 0`);
@@ -1923,26 +1874,23 @@
                         adjustedPnL: dp,
                         balance: currentBalance
                     });
-                    
-                    // Update counters - count when trade closes (this is when PnL is realized)
-                    dailyTrades[dateTime] = (dailyTrades[dateTime] || 0) + 1;
-                    if (trade.portfolioId) {
-                        if (!portfolioDailyCounts[trade.portfolioId][dateTime]) {
-                            portfolioDailyCounts[trade.portfolioId][dateTime] = 0;
-                        }
-                        portfolioDailyCounts[trade.portfolioId][dateTime]++;
-                    }
-                    
-                    if (!strategyDailyCounts[trade.strategyId][dateTime]) {
-                        strategyDailyCounts[trade.strategyId][dateTime] = 0;
-                    }
-                    strategyDailyCounts[trade.strategyId][dateTime]++;
                 });
 
                 equity.push(currentBalance);
                 const currentDD = peak > 0 ? (peak - currentBalance) / peak : 0;
                 drawdown.push(currentDD);
             });
+
+            const totalRejected = rejectedByStratParallel + rejectedByPortParallel + rejectedByTopParallel + rejectedByStratDaily + rejectedByPortDaily + rejectedByTopDaily;
+            console.log(`=== LIMIT ENFORCEMENT SUMMARY ===`);
+            console.log(`Executed trades: ${executedTrades.length}`);
+            console.log(`Rejected by strategy parallel limit: ${rejectedByStratParallel}`);
+            console.log(`Rejected by portfolio parallel limit: ${rejectedByPortParallel}`);
+            console.log(`Rejected by top-level parallel limit: ${rejectedByTopParallel}`);
+            console.log(`Rejected by strategy daily limit: ${rejectedByStratDaily}`);
+            console.log(`Rejected by portfolio daily limit: ${rejectedByPortDaily}`);
+            console.log(`Rejected by top-level daily limit: ${rejectedByTopDaily}`);
+            console.log(`Total rejected: ${totalRejected}`);
 
             // CAGR: (end/start)^(1/years)-1; years = engine-style from trade span (strategy-dashboard-metrics.md)
             let cagr = 0;
@@ -1976,7 +1924,8 @@
                 cagr,
                 executedTrades,
                 tradeBalances,
-                cagrYears: yearsCagr
+                cagrYears: yearsCagr,
+                rejectedTrades: totalRejected
             };
         }
 
@@ -2005,8 +1954,9 @@
                     <div class="stat-value">$${result.peak.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Number of Trades</div>
-                    <div class="stat-value">${result.totalTrades ? result.totalTrades.toLocaleString() : '0'}</div>
+                    <div class="stat-label">Trades Executed / Total</div>
+                    <div class="stat-value">${result.executedTrades ? result.executedTrades.length.toLocaleString() : '0'} / ${result.totalTrades ? result.totalTrades.toLocaleString() : '0'}</div>
+                    ${result.rejectedTrades > 0 ? `<div style="font-size: 11px; color: #e74c3c; margin-top: 4px;">${result.rejectedTrades} blocked by limits</div>` : ''}
                 </div>
             `;
 
